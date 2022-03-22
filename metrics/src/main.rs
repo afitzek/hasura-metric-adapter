@@ -1,19 +1,24 @@
-use tokio::io::{stdin, BufReader, AsyncBufReadExt};
+use tokio::{io::{stdin, BufReader, AsyncBufReadExt}, fs::File};
 use actix_web::{get, App, HttpServer, Responder};
 use prometheus::{TextEncoder, Encoder};
 use clap::{Arg, Command};
 
+use log::{error, info, warn};
+
 mod logprocessor;
 
-async fn parsestdin() -> std::io::Result<()> {
-    let stdin = stdin();
-    let reader = BufReader::new(stdin);
+async fn read_fille(cfg: &Configuration) -> std::io::Result<()> {
+    let input = File::open(&cfg.log_file).await?;
+    let reader = BufReader::new(input);
     let mut lines = reader.lines();
 
-    while let Some(line) = lines.next_line().await? {
-        logprocessor::log_processor(&line).await;
+    loop {
+        if let Some(line) = lines.next_line().await? {
+            logprocessor::log_processor(&line).await;
+        } else {
+            tokio::time::sleep(std::time::Duration::from_millis(cfg.sleep_time)).await;
+        }
     }
-    Ok(())
 }
 
 #[get("/metrics")]
@@ -30,7 +35,7 @@ async fn metrics() -> impl Responder {
 }
 
 async fn webserver(cfg: &Configuration) -> std::io::Result<()> {
-    println!("Starting metric server @ {}", cfg.listen_addr);
+    warn!("Starting metric server @ {}", cfg.listen_addr);
     HttpServer::new(|| App::new().service(metrics))
         .bind(&cfg.listen_addr)?
         .run()
@@ -38,7 +43,9 @@ async fn webserver(cfg: &Configuration) -> std::io::Result<()> {
 }
 
 struct Configuration {
-    listen_addr: String
+    listen_addr: String,
+    log_file: String,
+    sleep_time: u64
 }
 
 impl Default for Configuration {
@@ -54,26 +61,42 @@ impl Default for Configuration {
                 .default_value("0.0.0.0:9090")
                 .takes_value(true)
             )
+            .arg(
+                Arg::new("logfile")
+                .long("logfile")
+                .env("LOG_FILE")
+                .takes_value(true)
+            )
+            .arg(
+                Arg::new("sleep")
+                .long("sleep")
+                .env("SLEEP_TIME")
+                .default_value("10")
+                .takes_value(true)
+            )
             .get_matches();
 
         Configuration {
-            listen_addr: matches.value_of("listen").expect("required").to_string()
+            listen_addr: matches.value_of("listen").expect("required").to_string(),
+            log_file: matches.value_of("logfile").expect("required").to_string(),
+            sleep_time: matches.value_of_t("sleep").expect("can't configure sleep time"),
         }
     }
 }
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
     let config = Configuration::default();
 
-    let res = tokio::try_join!(webserver(&config),parsestdin());
+    let res = tokio::try_join!(webserver(&config),read_fille(&config));
 
     match res {
         Err(e) => {
-            eprintln!("System error: {}", e);
+            error!("System error: {}", e);
         },
         _ => {
-            println!("bye bye");
+            info!("bye bye");
         }
     };
 }

@@ -4,7 +4,7 @@
 
 For small projects, where I wanted to self host the graphql engine, it is laking visibility in terms of metrics. This project can help with this, since it reads and parses the hasura logs and collects and provides prometheus metrics from it.
 
-The logs can expected to be piped into the stdin of the application.
+The logs can expected to be read from a log file.
 
 The application will start a web server on `${LISTEN_ADDR}`, where the metrics
 can be scraped from the `/metrics` path.

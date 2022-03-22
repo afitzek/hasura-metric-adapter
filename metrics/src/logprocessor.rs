@@ -4,6 +4,8 @@ use prometheus::{register_int_counter, IntCounter};
 use prometheus::{register_int_counter_vec, IntCounterVec};
 use prometheus::{register_int_gauge, IntGauge};
 
+use log::warn;
+
 use serde::Deserialize;
 use serde_json::{from_str, from_value};
 
@@ -226,7 +228,7 @@ async fn handle_websocket_log(log: &BaseLog) {
             };
         }
         Err(e) => {
-            eprintln!("Invalid Websocket log detail: {}", e);
+            warn!("Invalid Websocket log detail: {}", e);
         }
     };
 }
@@ -249,7 +251,7 @@ pub async fn log_processor(logline: &String) {
             };
         }
         Err(e) => {
-            eprintln!("Failed to parse log line: {}", e);
+            warn!("Failed to parse log line: {}", e);
         }
     };
 }
