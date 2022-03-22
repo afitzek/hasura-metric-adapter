@@ -158,28 +158,28 @@ async fn handle_http_log(log: &BaseLog) {
 #[derive(Deserialize)]
 pub struct WebSocketDetailEvent {
     #[serde(rename = "type")]
-    eventType: String,
+    pub event_type: String,
 
     #[serde(rename = "detail")]
-    detail: Option<WebSocketDetailEventDetail>,
+    pub detail: Option<WebSocketDetailEventDetail>,
 }
 
 #[derive(Deserialize)]
 pub struct WebSocketDetailEventDetailOperationType {
     #[serde(rename = "type")]
-    operation_type: String,
+    pub operation_type: String,
     #[serde(rename = "detail")]
-    detail: Option<HttpLogDetailOperationError>,
+    pub detail: Option<HttpLogDetailOperationError>,
 }
 
 #[derive(Deserialize)]
 pub struct WebSocketDetailEventDetail {
     #[serde(rename = "operation_name")]
-    operation_name: Option<String>,
+    pub operation_name: Option<String>,
     #[serde(rename = "request_id")]
-    request_id: Option<String>,
+    pub request_id: Option<String>,
     #[serde(rename = "operation_type")]
-    operation_type: WebSocketDetailEventDetailOperationType,
+    pub operation_type: WebSocketDetailEventDetailOperationType,
 }
 
 #[derive(Deserialize)]
@@ -188,16 +188,16 @@ pub struct WebSocketDetailConnInfo {}
 #[derive(Deserialize)]
 pub struct WebSocketDetail {
     #[serde(rename = "event")]
-    event: WebSocketDetailEvent,
+    pub event: WebSocketDetailEvent,
     #[serde(rename = "connection_info")]
-    connection_info: WebSocketDetailConnInfo,
+    pub connection_info: WebSocketDetailConnInfo,
 }
 
 async fn handle_websocket_log(log: &BaseLog) {
     let detail_result = from_value::<WebSocketDetail>(log.detail.clone());
     match detail_result {
         Ok(http) => {
-            match &http.event.eventType as &str {
+            match &http.event.event_type as &str {
                 "accepted" => ACTIVE_WEBSOCKETS.inc(),
                 "closed" => ACTIVE_WEBSOCKETS.dec(),
                 "operation" => {
@@ -210,7 +210,7 @@ async fn handle_websocket_log(log: &BaseLog) {
                                     .with_label_values(&[op_name.as_str(), ""])
                                     .inc();
                                 ACTIVE_WEBSOCKET_OPERATIONS.dec()
-                            },
+                            }
                             "query_err" => {
                                 let err = detail
                                     .operation_type
@@ -239,7 +239,9 @@ pub async fn log_processor(logline: &String) {
     let log_result = from_str::<BaseLog>(logline);
     match log_result {
         Ok(log) => {
-            LOG_LINES_COUNTER.with_label_values(&[log.logtype.as_str()]).inc();
+            LOG_LINES_COUNTER
+                .with_label_values(&[log.logtype.as_str()])
+                .inc();
             match &log.logtype as &str {
                 "http-log" => {
                     handle_http_log(&log).await;
