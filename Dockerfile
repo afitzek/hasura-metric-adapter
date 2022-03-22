@@ -14,7 +14,7 @@ COPY ["./metrics/src", "./src"]
 
 RUN cargo build --release
 
-FROM gcr.io/distroless/cc-debian10 as final
+FROM ubuntu:20.04 as final
 
 COPY --from=build /app/target/release/metrics /
 
