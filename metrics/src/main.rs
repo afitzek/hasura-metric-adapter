@@ -1,22 +1,31 @@
 use tokio::{io::{stdin, BufReader, AsyncBufReadExt}, fs::File};
 use actix_web::{get, App, HttpServer, Responder};
 use prometheus::{TextEncoder, Encoder};
-use clap::{Arg, Command};
-
+use clap::{Arg};
+use notify::{RecommendedWatcher, Watcher, RecursiveMode};
+use std::sync::mpsc::channel;
 use log::{error, info, warn};
+use std::time::Duration;
 
 mod logprocessor;
 
 async fn read_fille(cfg: &Configuration) -> std::io::Result<()> {
+    let (tx, rx) = channel();
+
+    let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(cfg.sleep_time)).expect("Failed to establish file watching");
+
     let input = File::open(&cfg.log_file).await?;
     let reader = BufReader::new(input);
     let mut lines = reader.lines();
+
+    watcher.watch(&cfg.log_file, RecursiveMode::NonRecursive).expect("Failed to establish file watching");
 
     loop {
         if let Some(line) = lines.next_line().await? {
             logprocessor::log_processor(&line).await;
         } else {
-            tokio::time::sleep(std::time::Duration::from_millis(cfg.sleep_time)).await;
+            rx.recv().expect("Failed to receive notification on log file change");
+            //tokio::time::sleep(std::time::Duration::from_millis(cfg.sleep_time)).await;
         }
     }
 }
