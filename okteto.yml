@@ -1,0 +1,15 @@
+name: hasura
+container: count-log-1
+image: rust:1.58
+command: bash
+sync:
+- .:/usr/src/app
+environment:
+  - APP=/usr/src/app/metrics/target/debug/metrics
+  - LISTEN_ADDR=0.0.0.0:9999
+forward:
+  - 9999:9999
+volumes:
+- /usr/local/cargo/registry
+- /home/root/app/target
+workdir: /usr/src/app
