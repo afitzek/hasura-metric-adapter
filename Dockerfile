@@ -12,6 +12,8 @@ RUN cargo build --release
 
 COPY ["./metrics/src", "./src"]
 
+RUN touch src/main.rs
+
 RUN cargo build --release
 
 FROM ubuntu:20.04 as final
