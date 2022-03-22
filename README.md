@@ -70,7 +70,9 @@ Hasura should be configured to at least emit `http-log`, `webhook-log` and `quer
 
 ## Docker Image
 
-The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.0` needs two environment variables to be configured.
+Don't use version `v0.1.0` its broken.
+
+The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.1` needs two environment variables to be configured.
 
 `LISTEN_ADDR`: The listen address for the metric endpoint
 `LOG_FILE`: The log file, which will hold the hasura logs
