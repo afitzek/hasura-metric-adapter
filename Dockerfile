@@ -6,22 +6,14 @@ WORKDIR /app
 
 COPY ["./metrics/Cargo.toml", "./metrics/Cargo.lock", "./"]
 
-RUN mkdir src && echo "fn main() {}" > src/main.rs
-
-RUN cargo build --release
+RUN mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release
 
 COPY ["./metrics/src", "./src"]
 
-RUN touch src/main.rs
+RUN touch src/main.rs && cargo build --release
 
-RUN cargo build --release
-
-FROM ubuntu:20.04 as final
+FROM gcr.io/distroless/cc-debian11
 
 COPY --from=build /app/target/release/metrics /
 
-COPY ./scripts/entry.sh /
-
-CMD ["/entry.sh"]
-
-
+CMD ["/metrics"]

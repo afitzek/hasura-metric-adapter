@@ -8,6 +8,9 @@ license = "MIT OR Apache-2.0"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
+env_logger = "0.9.0"
+log = "0.4.16"
+
 tokio = { version = "1", features = ["full"]}
 actix-web = "4.0.1"
 prometheus = "0.13.0"
