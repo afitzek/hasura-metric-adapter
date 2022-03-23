@@ -11,6 +11,8 @@ license = "MIT OR Apache-2.0"
 env_logger = "0.9.0"
 log = "0.4.16"
 
+reqwest = { version = "0.11", features = ["json"]}
+
 tokio = { version = "1", features = ["full"]}
 actix-web = "4.0.1"
 prometheus = "0.13.0"

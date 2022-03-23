@@ -6,8 +6,20 @@ use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
 };
+use lazy_static::lazy_static;
+use prometheus::{register_int_counter_vec, IntCounterVec};
 
 mod logprocessor;
+mod collectors;
+
+lazy_static! {
+    pub(crate) static ref ERRORS_TOTAL: IntCounterVec = register_int_counter_vec!(
+        "hasura_errors_total",
+        "the total number of errors per collector",
+        &["collector"]
+    )
+    .unwrap();
+}
 
 async fn read_fille(cfg: &Configuration) -> std::io::Result<()> {
     let input = File::open(&cfg.log_file).await?;
@@ -47,8 +59,10 @@ async fn webserver(cfg: &Configuration) -> std::io::Result<()> {
         .await
 }
 
-struct Configuration {
+pub(crate) struct Configuration {
     listen_addr: String,
+    hasura_addr: String,
+    hasura_admin: String,
     log_file: String,
     sleep_time: u64,
 }
@@ -79,11 +93,26 @@ impl Default for Configuration {
                     .default_value("5000")
                     .takes_value(true),
             )
+            .arg(
+                Arg::new("hasura-endpoint")
+                    .long("hasura-endpoint")
+                    .env("HASURA_GRAPHQL_ENDPOINT")
+                    .default_value("http://localhost:8080")
+                    .takes_value(true),
+            )
+            .arg(
+                Arg::new("hasura-admin-secret")
+                    .long("hasura-admin-secret")
+                    .env("HASURA_GRAPHQL_ADMIN_SECRET")
+                    .takes_value(true),
+            )
             .get_matches();
 
         Configuration {
             listen_addr: matches.value_of("listen").expect("required").to_string(),
             log_file: matches.value_of("logfile").expect("required").to_string(),
+            hasura_addr: matches.value_of("hasura-endpoint").expect("required").trim_end().trim_end_matches("/").to_string(),
+            hasura_admin: matches.value_of("hasura-admin-secret").expect("required").to_string(),
             sleep_time: matches
                 .value_of_t("sleep")
                 .expect("can't configure sleep time"),
@@ -96,7 +125,11 @@ async fn main() {
     env_logger::init();
     let config = Configuration::default();
 
-    let res = tokio::try_join!(webserver(&config), read_fille(&config));
+    let res = tokio::try_join!(
+        webserver(&config),
+        read_fille(&config),
+        collectors::run_metadata_collector(&config)
+    );
 
     match res {
         Err(e) => {
