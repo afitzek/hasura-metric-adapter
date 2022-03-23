@@ -65,6 +65,7 @@ pub(crate) struct Configuration {
     hasura_admin: String,
     log_file: String,
     sleep_time: u64,
+    collect_interval: u64,
 }
 
 impl Default for Configuration {
@@ -94,6 +95,13 @@ impl Default for Configuration {
                     .takes_value(true),
             )
             .arg(
+                Arg::new("collect-intervall")
+                    .long("collect-intervall")
+                    .env("COLLECT_INTERVALL")
+                    .default_value("15000")
+                    .takes_value(true),
+            )
+            .arg(
                 Arg::new("hasura-endpoint")
                     .long("hasura-endpoint")
                     .env("HASURA_GRAPHQL_ENDPOINT")
@@ -116,6 +124,9 @@ impl Default for Configuration {
             sleep_time: matches
                 .value_of_t("sleep")
                 .expect("can't configure sleep time"),
+            collect_interval: matches
+                .value_of_t("collect-intervall")
+                .expect("can't configure collect-intervall time"),
         }
     }
 }
