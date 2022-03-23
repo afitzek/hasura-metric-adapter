@@ -1,10 +1,7 @@
 use actix_web::{get, App, HttpServer, Responder};
 use clap::Arg;
 use log::{error, info, warn};
-use notify::{RecommendedWatcher, RecursiveMode, Watcher};
 use prometheus::{Encoder, TextEncoder};
-use std::sync::mpsc::channel;
-use std::time::Duration;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
@@ -13,25 +10,18 @@ use tokio::{
 mod logprocessor;
 
 async fn read_fille(cfg: &Configuration) -> std::io::Result<()> {
-    let (tx, rx) = channel();
-
-    let mut watcher: RecommendedWatcher = Watcher::new(tx, Duration::from_secs(cfg.sleep_time))
-        .expect("Failed to establish file watching");
-
     let input = File::open(&cfg.log_file).await?;
     let reader = BufReader::new(input);
     let mut lines = reader.lines();
-
-    watcher
-        .watch(&cfg.log_file, RecursiveMode::NonRecursive)
-        .expect("Failed to establish file watching");
 
     loop {
         if let Some(line) = lines.next_line().await? {
             logprocessor::log_processor(&line).await;
         } else {
-            rx.recv()
-                .expect("Failed to receive notification on log file change");
+            // check for file changes every sleep time ms.
+            // This can be quite high, because usually one has a sample rate
+            // for scraping the prometheus metrics of a couple of seconds
+            tokio::time::sleep(std::time::Duration::from_millis(cfg.sleep_time)).await;
         }
     }
 }
@@ -86,7 +76,7 @@ impl Default for Configuration {
                 Arg::new("sleep")
                     .long("sleep")
                     .env("SLEEP_TIME")
-                    .default_value("10")
+                    .default_value("5000")
                     .takes_value(true),
             )
             .get_matches();
