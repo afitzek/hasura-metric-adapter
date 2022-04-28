@@ -11,6 +11,9 @@ can be scraped from the `/metrics` path.
 
 Hasura should be configured to at least emit `http-log`, `webhook-log` and `query-log` log types.
 
+Other envvars needed for configuration:
+`HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)
+`HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required
 
 ## Metrics
 
@@ -67,6 +70,27 @@ Hasura should be configured to at least emit `http-log`, `webhook-log` and `quer
 
     This is a gauge that holds the currently active websocket operations.
 
+- `hasura_healthy`
+
+    This is a gauge that is 1 if the instance is healthy or 0 otherwise
+
+The following metrics are the same as in the project (https://github.com/zolamk/hasura-exporter), also the idea on how to access them is based on it. So all credit for these need to go to @zolamk, I just ported them here.
+
+- `hasura_pending_cron_triggers`, `hasura_processed_cron_triggers`, `hasura_successful_cron_triggers`, `hasura_failed_cron_triggers`
+
+    These are gauges, that shows the number of (pending, processed, successful, failed) cron triggers labeled with the trigger name
+
+- `hasura_pending_event_triggers`, `hasura_processed_event_triggers`, `hasura_successful_event_triggers`, `hasura_failed_event_triggers`
+
+    These are gauges, that shows the number of (pending, processed, successful, failed) event triggers labeled with the trigger name
+
+- `hasura_pending_one_off_events`, `hasura_processed_one_off_events`, `hasura_successful_one_off_events`, `hasura_failed_one_off_events`
+
+    These are gauges, that shows the number of (pending, processed, successful, failed) one off events
+
+- `hasura_metadata_consistency_status`
+
+    This is a gauge that is 1 if the instance metadata is consistent or 0 otherwise
 
 ## Docker Image
 
