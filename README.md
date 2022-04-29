@@ -107,11 +107,19 @@ An example k8s setup can be found in [k8s_example.yaml](k8s_example.yaml).
 
 The important pieces of the example are:
 - The adapter runs in sidecar mode with the hasura container
+- The containers use a shared namespace, so that a named pipe can be accessed in both containers
+    `shareProcessNamespace: true`
 - The hasura container and the adapter share a common volume called `logs`, which is mounted in both containers as `/tmp/log`.
 - Overwrite the hasura command to:
+    ```
+    "/bin/sh", "-c", "rm -rf /tmp/log/stdout.log && mkfifo /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log"
+    ```
+    This creates a named pipe, and pipes the logs of graphql-engine to the stdout for logging and to the named pipe for the metric adapter to collect.
+
+    (an alternative if you can't have shared process namespaces in the pod, is to use a file, but as @Hongbo-Miao pointed out in https://github.com/afitzek/hasura-metric-adapter/issues/11 the log file can become very big)
     ```
     "/bin/sh", "-c", ": > /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log"
     ```
     This truncates the log file, to not count metrics on container restarts, starts the graphql-engine and pipes the stdout to stdout and the file `/tmp/log/stdout.log`.
 - `HASURA_GRAPHQL_ENABLED_LOG_TYPES` includes `http-log`, `webhook-log` and `query-log`.
-- The metric adapter is set up to listen on port `9999` and read the log file from the shared volume `/tmp/log/stdout.log`.
+- The metric adapter is set up to listen on port `9999` and read the log from the shared volume `/tmp/log/stdout.log`.
