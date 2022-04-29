@@ -69,6 +69,7 @@ spec:
       volumes:
       - name: logs
         emptyDir: {}
+      shareProcessNamespace: true
       containers:
       - name: hasura-metric-adapter
         image: ....
@@ -77,6 +78,8 @@ spec:
           value: /tmp/log/stdout.log
         - name: LISTEN_ADDR
           value: 0.0.0.0:9999
+        - name: HASURA_GRAPHQL_ADMIN_SECRET
+          value: test
         volumeMounts:
         - name: logs
           mountPath: /tmp/log
@@ -89,10 +92,12 @@ spec:
         - name: logs
           mountPath: /tmp/log
         command: [
-          "/bin/sh", "-c", ": > /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log"
+          "/bin/sh", "-c", "rm -rf /tmp/log/stdout.log && mkfifo /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log"
         ]
         name: hasura
         env:
+        - name: HASURA_GRAPHQL_ADMIN_SECRET
+          value: test
         - name: HASURA_GRAPHQL_DATABASE_URL
           value: postgres://postgres:postgres@postgres:5432/postgres
         ## enable the console served by server
