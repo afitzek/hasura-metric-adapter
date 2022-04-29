@@ -12,6 +12,7 @@ can be scraped from the `/metrics` path.
 Hasura should be configured to at least emit `http-log`, `webhook-log` and `query-log` log types.
 
 Other envvars needed for configuration:
+
 `HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)
 `HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required
 
@@ -96,10 +97,12 @@ The following metrics are the same as in the project (https://github.com/zolamk/
 
 Don't use version `v0.1.0` its broken.
 
-The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.4` needs two environment variables to be configured.
+The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.4` needs four environment variables to be configured.
 
 `LISTEN_ADDR`: The listen address for the metric endpoint
 `LOG_FILE`: The log file, which will hold the hasura logs
+`HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)
+`HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required
 
 ## K8S Example
 
