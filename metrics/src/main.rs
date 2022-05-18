@@ -85,6 +85,7 @@ impl Default for Configuration {
                 Arg::new("logfile")
                     .long("logfile")
                     .env("LOG_FILE")
+                    .required(true)
                     .takes_value(true),
             )
             .arg(
@@ -112,6 +113,7 @@ impl Default for Configuration {
                 Arg::new("hasura-admin-secret")
                     .long("hasura-admin-secret")
                     .env("HASURA_GRAPHQL_ADMIN_SECRET")
+                    .required(true)
                     .takes_value(true),
             )
             .get_matches();
