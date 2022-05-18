@@ -77,7 +77,7 @@ impl Default for Configuration {
                 Arg::new("sleep")
                     .long("sleep")
                     .env("SLEEP_TIME")
-                    .default_value("5000")
+                    .default_value("1000")
                     .takes_value(true),
             )
             .arg(
