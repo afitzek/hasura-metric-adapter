@@ -23,7 +23,7 @@ pub struct MetadataCheckRequest {
 }
 
 impl MetadataCheckRequest {
-    fn GetInconsistentMetadata() -> Self {
+    fn get_inconsistent_metadata() -> Self {
         MetadataCheckRequest {
             request_type: "get_inconsistent_metadata".to_string(),
             args: HashMap::new(),
@@ -41,7 +41,7 @@ pub(crate) async fn check_metadata(cfg: &Configuration) {
     let client = reqwest::Client::new();
     let metadata_check = client
         .post(format!("{}/v1/metadata", cfg.hasura_addr))
-        .json(&MetadataCheckRequest::GetInconsistentMetadata())
+        .json(&MetadataCheckRequest::get_inconsistent_metadata())
         .header("x-hasura-admin-secret", cfg.hasura_admin.to_owned())
         .send()
         .await;
