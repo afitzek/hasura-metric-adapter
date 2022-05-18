@@ -21,7 +21,7 @@ lazy_static! {
     .unwrap();
 }
 
-async fn read_fille(cfg: &Configuration) -> std::io::Result<()> {
+async fn read_file(cfg: &Configuration) -> std::io::Result<()> {
     let input = File::open(&cfg.log_file).await?;
     let reader = BufReader::new(input);
     let mut lines = reader.lines();
@@ -140,7 +140,7 @@ async fn main() {
 
     let res = tokio::try_join!(
         webserver(&config),
-        read_fille(&config),
+        read_file(&config),
         collectors::run_metadata_collector(&config)
     );
 
