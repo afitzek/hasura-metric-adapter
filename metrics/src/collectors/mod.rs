@@ -1,5 +1,6 @@
 use std::sync::mpsc;
-use crate::{Configuration, util};
+use std::sync::mpsc::RecvTimeoutError;
+use crate::{Configuration};
 
 mod sql;
 mod health;
@@ -8,7 +9,7 @@ mod scheduled_events;
 mod cron_triggers;
 mod event_triggers;
 
-pub(crate) async fn run_metadata_collector(cfg: &Configuration, rx: &mpsc::Receiver<()>) -> std::io::Result<()> {
+pub(crate) async fn run_metadata_collector(cfg: &Configuration, termination_rx: &mpsc::Receiver<()>) -> std::io::Result<()> {
     loop {
         tokio::join!(
             health::check_health(cfg),
@@ -17,12 +18,10 @@ pub(crate) async fn run_metadata_collector(cfg: &Configuration, rx: &mpsc::Recei
             cron_triggers::check_cron_triggers(&cfg),
             event_triggers::check_event_triggers(&cfg),
         );
-        for _i in 1..100 { // split up the interval so it stops in a useful amount of time
-            if util::should_stop(rx) {
-                return Ok(());
-            }
 
-            tokio::time::sleep(std::time::Duration::from_millis(cfg.collect_interval / 100)).await;
+        match termination_rx.recv_timeout(std::time::Duration::from_millis(cfg.collect_interval)) {
+            Ok(_) | Err(RecvTimeoutError::Disconnected) => return Ok(()),
+            Err(RecvTimeoutError::Timeout) => () //continue
         }
     }
 }

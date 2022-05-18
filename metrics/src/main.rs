@@ -10,7 +10,6 @@ use prometheus::{IntCounterVec, register_int_counter_vec};
 mod logreader;
 mod logprocessor;
 mod collectors;
-mod util;
 
 lazy_static! {
     pub(crate) static ref ERRORS_TOTAL: IntCounterVec = register_int_counter_vec!(
@@ -117,11 +116,19 @@ impl Default for Configuration {
     }
 }
 
-async fn signal_handler(tx: mpsc::Sender<()>) -> std::io::Result<()> {
+async fn signal_handler_ctrl_c(tx: mpsc::Sender<()>) -> std::io::Result<()> {
     tokio::signal::ctrl_c().await?;
+    warn!("Terminating due to ctrl+c");
     let _ = tx.send(());
     Ok(())
 }
+
+fn signal_handler() -> mpsc::Receiver<()> {
+    let (terminate_tx, terminate_rx) = mpsc::channel();
+    tokio::spawn(signal_handler_ctrl_c(terminate_tx));
+    terminate_rx
+}
+
 
 #[tokio::main]
 async fn main() {
@@ -130,10 +137,9 @@ async fn main() {
 
     println!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
 
-    let (terminate_tx, terminate_rx) = mpsc::channel();
+    let terminate_rx = signal_handler();
 
     let res = tokio::try_join!(
-        signal_handler(terminate_tx),
         webserver(&config),
         logreader::read_file(&config.log_file, config.sleep_time, &terminate_rx),
         collectors::run_metadata_collector(&config, &terminate_rx)
