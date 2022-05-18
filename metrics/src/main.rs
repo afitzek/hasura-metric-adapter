@@ -81,9 +81,9 @@ impl Default for Configuration {
                     .takes_value(true),
             )
             .arg(
-                Arg::new("collect-intervall")
-                    .long("collect-intervall")
-                    .env("COLLECT_INTERVALL")
+                Arg::new("collect-interval")
+                    .long("collect-interval")
+                    .env("COLLECT_INTERVAL")
                     .default_value("15000")
                     .takes_value(true),
             )
