@@ -1,16 +1,16 @@
-use actix_web::{get, App, HttpServer, Responder};
-use clap::Arg;
-use log::{error, info, warn};
-use prometheus::{Encoder, TextEncoder};
-use tokio::{
-    fs::File,
-    io::{AsyncBufReadExt, BufReader},
-};
-use lazy_static::lazy_static;
-use prometheus::{register_int_counter_vec, IntCounterVec};
+use std::sync::mpsc;
 
+use actix_web::{App, get, HttpServer, Responder};
+use clap::Arg;
+use lazy_static::lazy_static;
+use log::{info, warn};
+use prometheus::{Encoder, TextEncoder};
+use prometheus::{IntCounterVec, register_int_counter_vec};
+
+mod logreader;
 mod logprocessor;
 mod collectors;
+mod util;
 
 lazy_static! {
     pub(crate) static ref ERRORS_TOTAL: IntCounterVec = register_int_counter_vec!(
@@ -21,22 +21,7 @@ lazy_static! {
     .unwrap();
 }
 
-async fn read_file(cfg: &Configuration) -> std::io::Result<()> {
-    let input = File::open(&cfg.log_file).await?;
-    let reader = BufReader::new(input);
-    let mut lines = reader.lines();
 
-    loop {
-        if let Some(line) = lines.next_line().await? {
-            logprocessor::log_processor(&line).await;
-        } else {
-            // check for file changes every sleep time ms.
-            // This can be quite high, because usually one has a sample rate
-            // for scraping the prometheus metrics of a couple of seconds
-            tokio::time::sleep(std::time::Duration::from_millis(cfg.sleep_time)).await;
-        }
-    }
-}
 
 #[get("/metrics")]
 async fn metrics() -> impl Responder {
@@ -115,8 +100,7 @@ impl Default for Configuration {
                     .env("HASURA_GRAPHQL_ADMIN_SECRET")
                     .required(true)
                     .takes_value(true),
-            )
-            .get_matches();
+            ).get_matches();
 
         Configuration {
             listen_addr: matches.value_of("listen").expect("required").to_string(),
@@ -127,10 +111,16 @@ impl Default for Configuration {
                 .value_of_t("sleep")
                 .expect("can't configure sleep time"),
             collect_interval: matches
-                .value_of_t("collect-intervall")
-                .expect("can't configure collect-intervall time"),
+                .value_of_t("collect-interval")
+                .expect("can't configure collect-interval time"),
         }
     }
+}
+
+async fn signal_handler(tx: mpsc::Sender<()>) -> std::io::Result<()> {
+    tokio::signal::ctrl_c().await?;
+    let _ = tx.send(());
+    Ok(())
 }
 
 #[tokio::main]
@@ -138,15 +128,19 @@ async fn main() {
     env_logger::init();
     let config = Configuration::default();
 
-    let res = tokio::try_join!(
-        webserver(&config),
-        read_file(&config),
-        collectors::run_metadata_collector(&config)
-    );
+    println!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
 
+    let (terminate_tx, terminate_rx) = mpsc::channel();
+
+    let res = tokio::try_join!(
+        signal_handler(terminate_tx),
+        webserver(&config),
+        logreader::read_file(&config.log_file, config.sleep_time, &terminate_rx),
+        collectors::run_metadata_collector(&config, &terminate_rx)
+    );
     match res {
         Err(e) => {
-            error!("System error: {}", e);
+            panic!("System error: {}", e);
         }
         _ => {
             info!("bye bye");
