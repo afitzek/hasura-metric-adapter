@@ -60,7 +60,7 @@ fn create_scheduled_event_request() -> SQLRequest {
                     args: RunSQLArgs {
                         cascade: false,
                         read_only: true,
-                        sql: "SELECT COUNT(*) FROM hdb_catalog.hdb_cron_events WHERE status = 'error' or status = 'delivered';".to_string()
+                        sql: "SELECT COUNT(*) FROM hdb_catalog.hdb_scheduled_events WHERE status = 'error' or status = 'delivered';".to_string()
                     }
                 },
             ],
