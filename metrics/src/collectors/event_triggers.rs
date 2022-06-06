@@ -72,6 +72,9 @@ fn create_event_trigger_request() -> SQLRequest {
 }
 
 pub(crate) async fn check_event_triggers(cfg: &Configuration) {
+    if cfg.exclude_collectors.contains("event_triggers") {
+        return
+    }
     let sql_result = make_sql_request(&create_event_trigger_request(), cfg).await;
     match sql_result {
         Ok(v) => {

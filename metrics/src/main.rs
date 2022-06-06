@@ -50,6 +50,7 @@ pub(crate) struct Configuration {
     log_file: String,
     sleep_time: u64,
     collect_interval: u64,
+    exclude_collectors: String,
 }
 
 impl Default for Configuration {
@@ -99,6 +100,13 @@ impl Default for Configuration {
                     .env("HASURA_GRAPHQL_ADMIN_SECRET")
                     .required(true)
                     .takes_value(true),
+            )
+            .arg(
+                Arg::new("exclude_collectors")
+                    .long("exclude_collectors")
+                    .env("EXCLUDE_COLLECTORS")
+                    .default_value("")
+                    .takes_value(true),
             ).get_matches();
 
         Configuration {
@@ -112,6 +120,7 @@ impl Default for Configuration {
             collect_interval: matches
                 .value_of_t("collect-interval")
                 .expect("can't configure collect-interval time"),
+            exclude_collectors: matches.value_of("exclude_collectors").expect("required").to_string(),
         }
     }
 }
