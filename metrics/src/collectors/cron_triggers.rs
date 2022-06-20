@@ -1,7 +1,7 @@
 use super::sql::*;
 use crate::{Configuration, ERRORS_TOTAL};
 use lazy_static::lazy_static;
-use log::warn;
+use log::{warn, info};
 use prometheus::{register_int_gauge_vec, IntGaugeVec};
 
 lazy_static! {
@@ -72,6 +72,10 @@ fn create_cron_trigger_request() -> SQLRequest {
 }
 
 pub(crate) async fn check_cron_triggers(cfg: &Configuration) {
+    if cfg.disabled_collectors.contains(&crate::Collectors::CronTriggers) {
+        info!("Not collecting cron triggers.");
+        return;
+    }
     let sql_result = make_sql_request(&create_cron_trigger_request(), cfg).await;
     match sql_result {
         Ok(v) => {

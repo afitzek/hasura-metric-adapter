@@ -1,7 +1,7 @@
 use super::sql::*;
 use crate::{Configuration, ERRORS_TOTAL};
 use lazy_static::lazy_static;
-use log::warn;
+use log::{warn, info};
 use prometheus::{register_int_gauge, IntGauge};
 
 lazy_static! {
@@ -68,6 +68,10 @@ fn create_scheduled_event_request() -> SQLRequest {
 }
 
 pub(crate) async fn check_scheduled_events(cfg: &Configuration) {
+    if cfg.disabled_collectors.contains(&crate::Collectors::ScheduledEvents) {
+        info!("Not collecting scheduled event.");
+        return;
+    }
     let sql_result = make_sql_request(&create_scheduled_event_request(), cfg).await;
     match sql_result {
         Ok(v) => {
