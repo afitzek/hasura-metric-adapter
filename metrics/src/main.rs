@@ -1,7 +1,8 @@
 use std::sync::mpsc;
 
 use actix_web::{App, get, HttpServer, Responder};
-use clap::Arg;
+use clap::Parser;
+
 use lazy_static::lazy_static;
 use log::{info, warn};
 use prometheus::{Encoder, TextEncoder};
@@ -43,77 +44,36 @@ async fn webserver(cfg: &Configuration) -> std::io::Result<()> {
         .await
 }
 
-pub(crate) struct Configuration {
-    listen_addr: String,
-    hasura_addr: String,
-    hasura_admin: String,
-    log_file: String,
-    sleep_time: u64,
-    collect_interval: u64,
+#[derive(clap::ValueEnum, Clone,Debug, PartialEq, Eq)]
+pub(crate) enum Collectors {
+    CronTriggers,
+    EventTriggers,
+    ScheduledEvents,
 }
 
-impl Default for Configuration {
-    fn default() -> Self {
-        let matches = clap::command!()
-            .version(clap::crate_version!())
-            .author(clap::crate_authors!("\n"))
-            .about(clap::crate_description!())
-            .arg(
-                Arg::new("listen")
-                    .long("listen")
-                    .env("LISTEN_ADDR")
-                    .default_value("0.0.0.0:9090")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("logfile")
-                    .long("logfile")
-                    .env("LOG_FILE")
-                    .required(true)
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("sleep")
-                    .long("sleep")
-                    .env("SLEEP_TIME")
-                    .default_value("1000")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("collect-interval")
-                    .long("collect-interval")
-                    .env("COLLECT_INTERVAL")
-                    .default_value("15000")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("hasura-endpoint")
-                    .long("hasura-endpoint")
-                    .env("HASURA_GRAPHQL_ENDPOINT")
-                    .default_value("http://localhost:8080")
-                    .takes_value(true),
-            )
-            .arg(
-                Arg::new("hasura-admin-secret")
-                    .long("hasura-admin-secret")
-                    .env("HASURA_GRAPHQL_ADMIN_SECRET")
-                    .required(true)
-                    .takes_value(true),
-            ).get_matches();
+#[derive(Parser,Debug)]
+#[clap(author, version, about)]
+pub(crate) struct Configuration {
+    #[clap(name ="listen", long = "listen", env = "LISTEN_ADDR", default_value = "0.0.0.0:9090")]
+    listen_addr: String,
 
-        Configuration {
-            listen_addr: matches.value_of("listen").expect("required").to_string(),
-            log_file: matches.value_of("logfile").expect("required").to_string(),
-            hasura_addr: matches.value_of("hasura-endpoint").expect("required").trim_end().trim_end_matches("/").to_string(),
-            hasura_admin: matches.value_of("hasura-admin-secret").expect("required").to_string(),
-            sleep_time: matches
-                .value_of_t("sleep")
-                .expect("can't configure sleep time"),
-            collect_interval: matches
-                .value_of_t("collect-interval")
-                .expect("can't configure collect-interval time"),
-        }
-    }
+    #[clap(name ="hasura-endpoint", long = "hasura-endpoint", env = "HASURA_GRAPHQL_ENDPOINT", default_value = "http://localhost:8080")]
+    hasura_addr: String,
+
+    #[clap(name ="hasura-admin-secret", long = "hasura-admin-secret", env = "HASURA_GRAPHQL_ADMIN_SECRET")]
+    hasura_admin: String,
+
+    #[clap(name ="logfile", long = "logfile", env = "LOG_FILE")]
+    log_file: String,
+
+    #[clap(name ="sleep", long = "sleep", env = "SLEEP_TIME", default_value = "1000")]
+    sleep_time: u64,
+
+    #[clap(name ="collect-interval", long = "collect-interval", env = "COLLECT_INTERVAL", default_value = "15000")]
+    collect_interval: u64,
+
+    #[clap(name ="exclude_collectors", long = "exclude_collectors", env = "EXCLUDE_COLLECTORS", value_parser, value_delimiter(';'))]
+    disabled_collectors: Vec<Collectors>,
 }
 
 async fn signal_handler_ctrl_c(tx: mpsc::Sender<()>) -> std::io::Result<()> {
@@ -133,9 +93,11 @@ fn signal_handler() -> mpsc::Receiver<()> {
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let config = Configuration::default();
+    let config = Configuration::parse();
 
     println!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
+
+    println!("Config {:?}", config);
 
     let terminate_rx = signal_handler();
 
