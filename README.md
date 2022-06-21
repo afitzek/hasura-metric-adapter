@@ -14,15 +14,18 @@ Hasura should be configured to at least emit `http-log`, `webhook-log` and `quer
 Other envvars needed for configuration:
 
 `HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)
-`HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required
+
+`HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret is optional, if its not provided,
+some collectors are disabled. 
 
 ## Program help
 
 ```
+metrics 0.1.6
 A prometheus metric generator for Hasura based on the log stream
 
 USAGE:
-    metrics [OPTIONS] --hasura-admin-secret <hasura-admin-secret> --logfile <logfile>
+    metrics [OPTIONS] --logfile <logfile>
 
 OPTIONS:
         --collect-interval <collect-interval>
@@ -30,7 +33,7 @@ OPTIONS:
 
         --exclude_collectors <exclude_collectors>
             [env: EXCLUDE_COLLECTORS=] [possible values: cron-triggers, event-triggers,
-            scheduled-events]
+            scheduled-events, metadata-inconsistency]
 
     -h, --help
             Print help information
@@ -117,7 +120,7 @@ OPTIONS:
     This is a gauge, that holds a `hasura_version` label, with the hasura version
     and the value of `1` if that version was detected.
 
-The following metrics are the same as in the project (https://github.com/zolamk/hasura-exporter), also the idea on how to access them is based on it. So all credit for these need to go to @zolamk, I just ported them here.
+The following metrics are the same as in the project (https://github.com/zolamk/hasura-exporter), also the idea on how to access them is based on it. So all credit for these need to go to @zolamk, I just ported them here. (These metrics are disabled if no admin secret is provided.)
 
 - `hasura_pending_cron_triggers`, `hasura_processed_cron_triggers`, `hasura_successful_cron_triggers`, `hasura_failed_cron_triggers`
 

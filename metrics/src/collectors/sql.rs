@@ -2,6 +2,7 @@
 use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use log::warn;
+use snafu::{prelude::*, Whatever};
 
 #[derive(Serialize)]
 pub struct SQLRequest {
@@ -37,14 +38,23 @@ pub struct SQLResult {
     pub result: std::vec::Vec<std::vec::Vec<String>>,
 }
 
-pub(crate) async fn make_sql_request(request: &SQLRequest, cfg: &crate::Configuration) -> reqwest::Result<Response> {
+pub(crate) async fn make_sql_request(request: &SQLRequest, cfg: &crate::Configuration) -> Result<Response, Whatever> {
+    let admin_secret = match &cfg.hasura_admin {
+        Some(v) => Ok(v),
+        None => {
+            whatever!("Metadata should be collected, but admin secret missing!")
+        }
+    }?;
     let client = reqwest::Client::new();
-    client
+    match client
         .post(format!("{}/v2/query", cfg.hasura_addr))
         .json(request)
-        .header("x-hasura-admin-secret", cfg.hasura_admin.to_owned())
+        .header("x-hasura-admin-secret", admin_secret)
         .send()
-        .await
+        .await {
+            Ok(v) => Ok(v),
+            Err(e) => whatever!("Failed to run SQL request against hasura: {}", e)
+    }
 }
 pub(crate) fn get_sql_entry_value(entry: &Vec<String>) -> Option<(i64, Option<String>)> {
     if entry.len() >= 1 && entry.len() <= 2 {
