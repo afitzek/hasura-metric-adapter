@@ -97,8 +97,6 @@ async fn main() {
 
     println!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
 
-    println!("Config {:?}", config);
-
     let terminate_rx = signal_handler();
 
     let res = tokio::try_join!(
