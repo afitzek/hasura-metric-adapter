@@ -4,7 +4,7 @@ use actix_web::{App, get, HttpServer, Responder};
 use clap::Parser;
 
 use lazy_static::lazy_static;
-use log::{info, warn};
+use log::{info, warn, debug};
 use prometheus::{Encoder, TextEncoder};
 use prometheus::{IntCounterVec, register_int_counter_vec};
 
@@ -44,11 +44,12 @@ async fn webserver(cfg: &Configuration) -> std::io::Result<()> {
         .await
 }
 
-#[derive(clap::ValueEnum, Clone,Debug, PartialEq, Eq)]
+#[derive(clap::ValueEnum, Clone,Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Collectors {
     CronTriggers,
     EventTriggers,
     ScheduledEvents,
+    MetadataInconsistency,
 }
 
 #[derive(Parser,Debug)]
@@ -61,7 +62,7 @@ pub(crate) struct Configuration {
     hasura_addr: String,
 
     #[clap(name ="hasura-admin-secret", long = "hasura-admin-secret", env = "HASURA_GRAPHQL_ADMIN_SECRET")]
-    hasura_admin: String,
+    hasura_admin: Option<String>,
 
     #[clap(name ="logfile", long = "logfile", env = "LOG_FILE")]
     log_file: String,
@@ -93,9 +94,27 @@ fn signal_handler() -> mpsc::Receiver<()> {
 #[tokio::main]
 async fn main() {
     env_logger::init();
-    let config = Configuration::parse();
+    let mut config = Configuration::parse();
+
+    if config.hasura_admin.is_none() {
+        let admin_collectors = [
+            Collectors::CronTriggers,
+            Collectors::EventTriggers,
+            Collectors::ScheduledEvents,
+            Collectors::MetadataInconsistency,
+        ];
+
+        config.disabled_collectors.extend_from_slice(&admin_collectors);
+
+        warn!("No Hasura admin secret provided, disabling following collectors: {:?}", &admin_collectors);
+    }
+
+    config.disabled_collectors.sort();
+    config.disabled_collectors.dedup();
 
     println!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
+
+    debug!("Configuration: {:?}", config);
 
     let terminate_rx = signal_handler();
 

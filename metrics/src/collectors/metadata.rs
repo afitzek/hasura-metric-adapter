@@ -82,11 +82,21 @@ async fn fetch_version(cfg: &Configuration) {
 }
 
 async fn fetch_metadata(cfg: &Configuration) {
+    if cfg.disabled_collectors.contains(&crate::Collectors::MetadataInconsistency) {
+        return
+    }
+    let admin_secret = match &cfg.hasura_admin {
+        Some(v) => v,
+        None => {
+            warn!("Metadata should be collected, but admin secret missing!");
+            return;
+        }
+    };
     let client = reqwest::Client::new();
     let metadata_check = client
         .post(format!("{}/v1/metadata", cfg.hasura_addr))
         .json(&MetadataCheckRequest::get_inconsistent_metadata())
-        .header("x-hasura-admin-secret", cfg.hasura_admin.to_owned())
+        .header("x-hasura-admin-secret", admin_secret)
         .send()
         .await;
     match metadata_check {
