@@ -104,7 +104,6 @@ OPTIONS:
     - `error` which holds the error code if an error was detected or nothing if
     this was successfull
 
-
 - `hasura_websockets_operations_active`
 
     This is a gauge that holds the currently active websocket operations.
@@ -112,6 +111,11 @@ OPTIONS:
 - `hasura_healthy`
 
     This is a gauge that is 1 if the instance is healthy or 0 otherwise
+
+- `hasura_metadata_version`
+
+    This is a gauge, that holds a `hasura_version` label, with the hasura version
+    and the value of `1` if that version was detected.
 
 The following metrics are the same as in the project (https://github.com/zolamk/hasura-exporter), also the idea on how to access them is based on it. So all credit for these need to go to @zolamk, I just ported them here.
 
