@@ -16,6 +16,44 @@ Other envvars needed for configuration:
 `HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)
 `HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required
 
+## Program help
+
+```
+A prometheus metric generator for Hasura based on the log stream
+
+USAGE:
+    metrics [OPTIONS] --hasura-admin-secret <hasura-admin-secret> --logfile <logfile>
+
+OPTIONS:
+        --collect-interval <collect-interval>
+            [env: COLLECT_INTERVAL=] [default: 15000]
+
+        --exclude_collectors <exclude_collectors>
+            [env: EXCLUDE_COLLECTORS=] [possible values: cron-triggers, event-triggers,
+            scheduled-events]
+
+    -h, --help
+            Print help information
+
+        --hasura-admin-secret <hasura-admin-secret>
+            [env: HASURA_GRAPHQL_ADMIN_SECRET=]
+
+        --hasura-endpoint <hasura-endpoint>
+            [env: HASURA_GRAPHQL_ENDPOINT=] [default: http://localhost:8080]
+
+        --listen <listen>
+            [env: LISTEN_ADDR=] [default: 0.0.0.0:9090]
+
+        --logfile <logfile>
+            [env: LOG_FILE=]
+
+        --sleep <sleep>
+            [env: SLEEP_TIME=] [default: 1000]
+
+    -V, --version
+            Print version information
+```
+
 ## Metrics
 
 - `hasura_log_lines_counter`
@@ -97,7 +135,7 @@ The following metrics are the same as in the project (https://github.com/zolamk/
 
 Don't use version `v0.1.0` its broken.
 
-The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.4` needs four environment variables to be configured.
+The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.6` needs four environment variables to be configured.
 
 `LISTEN_ADDR`: The listen address for the metric endpoint
 `LOG_FILE`: The log file, which will hold the hasura logs
@@ -126,3 +164,11 @@ The important pieces of the example are:
     This truncates the log file, to not count metrics on container restarts, starts the graphql-engine and pipes the stdout to stdout and the file `/tmp/log/stdout.log`.
 - `HASURA_GRAPHQL_ENABLED_LOG_TYPES` includes `http-log`, `webhook-log` and `query-log`.
 - The metric adapter is set up to listen on port `9999` and read the log from the shared volume `/tmp/log/stdout.log`.
+
+
+# Troubleshooting
+
+- Event Log errors:
+    If you see constant errors that the `event_log` is not existing, than you probably don't use
+    events. Hasura might only create the `event_log` table when needed, in this case disable
+    the appropriate collector. For example `EXCLUDE_COLLECTORS=event-triggers`
