@@ -172,6 +172,15 @@ The important pieces of the example are:
 - `HASURA_GRAPHQL_ENABLED_LOG_TYPES` includes `http-log`, `webhook-log` and `query-log`.
 - The metric adapter is set up to listen on port `9999` and read the log from the shared volume `/tmp/log/stdout.log`.
 
+## Docker-compose
+
+A [docker-compose.yml](docker-compose.yml) is provided, ready to be used, following the same principles used on the construction of the [k8s_example.yaml](k8s_example.yaml).
+
+In order to run it, execute:
+```
+docker-compose build
+docker-compose up
+```
 
 # Troubleshooting
 
