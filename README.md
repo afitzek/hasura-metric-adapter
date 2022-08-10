@@ -64,7 +64,7 @@ OPTIONS:
     log type.
 
 - `hasura_log_lines_counter_total`
-    This is a counter that is the sum of all conted log lines.
+    This is a counter that is the sum of all counted log lines.
 
 - `hasura_query_execution_seconds`
 
@@ -73,7 +73,7 @@ OPTIONS:
     - `operation` which holds the operation name of the graphql query or nothing
     if none is provided.
     - `error` which holds the error code if an error was detected or nothing if
-    this was successfull
+    this was successful
 
     For each label setting there are the following entries:
     - `hasura_query_execution_seconds_bucket`
@@ -82,7 +82,7 @@ OPTIONS:
 
 - `hasura_request_counter`
 
-    This is a counter that cound the number of http requests. It provides
+    This is a counter that counts the number of http requests. It provides
     `status` the http status code and `url` the path that was called.
 
 - `hasura_request_query_counter`
@@ -92,7 +92,7 @@ OPTIONS:
     - `operation` which holds the operation name of the graphql query or nothing
     if none is provided.
     - `error` which holds the error code if an error was detected or nothing if
-    this was successfull
+    this was successful
 
 - `hasura_websockets_active`
 
@@ -100,12 +100,12 @@ OPTIONS:
 
 - `hasura_websockets_operations`
 
-    This is a coutner that counts the operations (queries) over websockets.
+    This is a counter that counts the operations (queries) over websockets.
     The labels are:
     - `operation` which holds the operation name of the graphql query or nothing
     if none is provided.
     - `error` which holds the error code if an error was detected or nothing if
-    this was successfull
+    this was successful
 
 - `hasura_websockets_operations_active`
 
