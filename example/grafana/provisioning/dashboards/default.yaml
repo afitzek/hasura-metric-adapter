@@ -1,0 +1,12 @@
+apiVersion: 1
+
+providers:
+  - name: ClusterDashboards
+    orgId: 1
+    allowUiUpdates: true
+    type: file
+    disableDeletion: false
+    updateIntervalSeconds: 10
+    options:
+      path: /dashboards
+      foldersFromFilesStructure: true
