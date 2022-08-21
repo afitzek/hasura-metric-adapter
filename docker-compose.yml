@@ -44,7 +44,25 @@ services:
     environment:
       LOG_FILE: /tmp/log/stdout.log
       HASURA_GRAPHQL_ADMIN_SECRET: test
+      HASURA_GRAPHQL_ENDPOINT: "http://hasura:8080"
 
+  prometheus:
+    image: prom/prometheus:v2.30.3
+    ports:
+      - 9000:9090
+    volumes:
+      - ./example/prometheus:/etc/prometheus
+      - prometheus-data:/prometheus
+    command: --web.enable-lifecycle  --config.file=/etc/prometheus/prometheus.yml
+
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - 3000:3000
+    volumes:
+      - ./example/grafana/provisioning:/etc/grafana/provisioning
+      - ./example/grafana/dashboards:/dashboards
 volumes:
   db_data:
   logs:
+  prometheus-data:
