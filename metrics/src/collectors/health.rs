@@ -19,6 +19,7 @@ pub(crate) async fn check_health(cfg: &Configuration) {
             }
         },
         Err(e) => {
+            HEALTH_CHECK.set(0);
             ERRORS_TOTAL.with_label_values(&["health"]).inc();
             warn!("Failed to collect health check {}", e);
         }

@@ -45,6 +45,7 @@ services:
       LOG_FILE: /tmp/log/stdout.log
       HASURA_GRAPHQL_ADMIN_SECRET: test
       HASURA_GRAPHQL_ENDPOINT: "http://hasura:8080"
+      EXCLUDE_COLLECTORS: "cron-triggers;event-triggers;scheduled-events"
 
   prometheus:
     image: prom/prometheus:v2.30.3
