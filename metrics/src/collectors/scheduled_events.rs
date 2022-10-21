@@ -51,7 +51,7 @@ pub(crate) async fn check_scheduled_events(cfg: &Configuration,metric_obj: &Tele
     match sql_result {
         Ok(v) => {
             if v.status() == reqwest::StatusCode::OK {
-                let response = v.json::<std::vec::Vec<SQLResult>>().await;
+                let response = v.json::<Vec<SQLResult>>().await;
                 match response {
                     Ok(v) => {
                         if let Some(Some((count, _))) = v.get(0).map(get_sql_result_value) {
