@@ -51,7 +51,7 @@ pub(crate) async fn check_event_triggers(cfg: &Configuration, metric_obj: &Telem
     match sql_result {
         Ok(v) => {
             if v.status() == reqwest::StatusCode::OK {
-                let response = v.json::<std::vec::Vec<SQLResult>>().await;
+                let response = v.json::<Vec<SQLResult>>().await;
                 match response {
                     Ok(v) => {
                         if let Some(failed) = v.get(0) {
