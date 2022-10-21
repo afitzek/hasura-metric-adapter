@@ -10,15 +10,15 @@ use std::time::Duration;
 use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
 
 
-use crate::{logprocessor};
+use crate::{logprocessor, Telemetry};
 
 
-pub async fn read_file(log_file: &String, sleep_time: u64, termination_rx: &mpsc::Receiver<()>) -> Result<()> {
+pub async fn read_file(log_file: &String, metric_obj: &Telemetry, sleep_time: u64, termination_rx: &mpsc::Receiver<()>) -> Result<()> {
     loop {
         match File::open(log_file).await {
             Ok(file) => {
                 info!("Hasura log file {} open, will follow the log", log_file);
-                match process_file(log_file, file, sleep_time, termination_rx).await {
+                match process_file(log_file, metric_obj, file, sleep_time, termination_rx).await {
                     Ok(true) => (),
                     Ok(false) => return Ok(()),
                     Err(e) => {
@@ -39,7 +39,7 @@ pub async fn read_file(log_file: &String, sleep_time: u64, termination_rx: &mpsc
     }
 }
 
-async fn process_file(file_name: &String, file: File, sleep_time: u64, termination_rx: &mpsc::Receiver<()>) -> Result<bool> {
+async fn process_file(file_name: &String, metric_obj: &Telemetry, file: File, sleep_time: u64, termination_rx: &mpsc::Receiver<()>) -> Result<bool> {
     let (watch_sender, watch_receiver) = mpsc::channel();
     let mut watcher = watcher(watch_sender, Duration::from_secs(1)).unwrap();
     watcher.watch(file_name, RecursiveMode::NonRecursive).unwrap();
@@ -84,7 +84,7 @@ async fn process_file(file_name: &String, file: File, sleep_time: u64, terminati
             }
 
             if let Some(line) = lines.next_line().await? {
-                logprocessor::log_processor(&line).await;
+                logprocessor::log_processor(&line,metric_obj).await;
             } else {
                 break;
             }

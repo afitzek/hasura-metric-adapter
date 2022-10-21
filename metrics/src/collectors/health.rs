@@ -1,26 +1,19 @@
-use crate::{Configuration, ERRORS_TOTAL};
-use lazy_static::lazy_static;
-use prometheus::{register_int_gauge, IntGauge};
+use crate::{Configuration, Telemetry};
 use log::warn;
 
-lazy_static! {
-    static ref HEALTH_CHECK: IntGauge =
-        register_int_gauge!("hasura_healthy", "If 1 hasura graphql server is healthy, 0 otherwise").unwrap();
-}
-
-pub(crate) async fn check_health(cfg: &Configuration) {
+pub(crate) async fn check_health(cfg: &Configuration, metric_obj: &Telemetry) {
     let health_check = reqwest::get(format!("{}/healthz", cfg.hasura_addr)).await;
     match health_check {
         Ok(v) => {
             if v.status() == reqwest::StatusCode::OK {
-                HEALTH_CHECK.set(1);
+                metric_obj.HEALTH_CHECK.set(1);
             } else {
-                HEALTH_CHECK.set(0);
+                metric_obj.HEALTH_CHECK.set(0);
             }
         },
         Err(e) => {
-            HEALTH_CHECK.set(0);
-            ERRORS_TOTAL.with_label_values(&["health"]).inc();
+            metric_obj.HEALTH_CHECK.set(0);
+            metric_obj.ERRORS_TOTAL.with_label_values(&["health"]).inc();
             warn!("Failed to collect health check {}", e);
         }
     };
