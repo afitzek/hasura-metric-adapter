@@ -1,24 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{Configuration, ERRORS_TOTAL};
-use lazy_static::lazy_static;
+use crate::{Configuration, Telemetry};
 use log::warn;
-use prometheus::{register_int_gauge, register_int_gauge_vec, IntGauge, IntGaugeVec};
 use serde::{Serialize, Deserialize};
-
-lazy_static! {
-    static ref METADATA_CONSISTENCY: IntGauge = register_int_gauge!(
-        "hasura_metadata_consistency_status",
-        "If 1 metadata is consistent, 0 otherwise"
-    )
-    .unwrap();
-    static ref METADATA_VERSION: IntGaugeVec = register_int_gauge_vec!(
-        "hasura_metadata_version",
-        "If 1 version is active, 0 otherwise",
-        &["hasura_version"]
-    )
-    .unwrap();
-}
 
 #[derive(Serialize)]
 pub struct MetadataCheckRequest {
@@ -49,7 +33,7 @@ pub struct VersionResponse {
     pub version: String
 }
 
-async fn fetch_version(cfg: &Configuration) {
+async fn fetch_version(cfg: &Configuration, metric_obj: &Telemetry) {
     let client = reqwest::Client::new();
     let version_check = client
         .get(format!("{}/v1/version", cfg.hasura_addr))
@@ -61,27 +45,27 @@ async fn fetch_version(cfg: &Configuration) {
                 let response = v.json::<VersionResponse>().await;
                 match response {
                     Ok(v) => {
-                        METADATA_VERSION.reset();
-                        METADATA_VERSION.with_label_values(&[v.version.as_str()]).set(1);
+                        metric_obj.METADATA_VERSION.reset();
+                        metric_obj.METADATA_VERSION.with_label_values(&[v.version.as_str()]).set(1);
                     },
                     Err(e) => {
                         warn!("Failed to collect version information invalid response format: {}", e);
-                        ERRORS_TOTAL.with_label_values(&["version"]).inc();
+                        metric_obj.ERRORS_TOTAL.with_label_values(&["version"]).inc();
                     }
                 }
             } else {
                 warn!("Failed to collect version information invalid status code: {}", v.status());
-                ERRORS_TOTAL.with_label_values(&["version"]).inc();
+                metric_obj.ERRORS_TOTAL.with_label_values(&["version"]).inc();
             }
         }
         Err(e) => {
-            ERRORS_TOTAL.with_label_values(&["version"]).inc();
+            metric_obj.ERRORS_TOTAL.with_label_values(&["version"]).inc();
             warn!("Failed to collect version information {}", e);
         }
     };
 }
 
-async fn fetch_metadata(cfg: &Configuration) {
+async fn fetch_metadata(cfg: &Configuration, metric_obj: &Telemetry) {
     if cfg.disabled_collectors.contains(&crate::Collectors::MetadataInconsistency) {
         return
     }
@@ -106,31 +90,31 @@ async fn fetch_metadata(cfg: &Configuration) {
                 match response {
                     Ok(v) => {
                         if v.is_consistent {
-                            METADATA_CONSISTENCY.set(1);
+                            metric_obj.METADATA_CONSISTENCY.set(1);
                         } else {
-                            METADATA_CONSISTENCY.set(0);
+                            metric_obj.METADATA_CONSISTENCY.set(0);
                         }
                     },
                     Err(e) => {
                         warn!("Failed to collect metadata check invalid response format: {}", e);
-                        ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
+                        metric_obj.ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
                     }
                 }
             } else {
                 warn!("Failed to collect metadata check invalid status code: {}", v.status());
-                ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
+                metric_obj.ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
             }
         }
         Err(e) => {
-            ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
+            metric_obj.ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
             warn!("Failed to collect metadata check {}", e);
         }
     };
 }
 
-pub(crate) async fn check_metadata(cfg: &Configuration) {
+pub(crate) async fn check_metadata(cfg: &Configuration, metric_obj: &Telemetry) {
     tokio::join!(
-        fetch_version(cfg),
-        fetch_metadata(cfg)
+        fetch_version(cfg,metric_obj),
+        fetch_metadata(cfg,metric_obj)
     );
 }

@@ -7,25 +7,15 @@ use clap::Parser;
 use clap::builder::TypedValueParser;
 
 use regex::Regex;
-use lazy_static::lazy_static;
 use log::{info, warn, debug};
 
 use prometheus::{Encoder, TextEncoder};
-use prometheus::{Opts, IntCounterVec, register_int_counter_vec};
+use crate::telemetry::Telemetry;
 
 mod logreader;
 mod logprocessor;
 mod collectors;
-
-lazy_static! {
-    pub(crate) static ref ERRORS_TOTAL: IntCounterVec = register_int_counter_vec!(
-        "hasura_errors_total",
-        "the total number of errors per collector",
-        &["collector"]
-    )
-    .unwrap();
-}
-
+mod telemetry;
 
 
 #[get("/metrics")]
@@ -113,10 +103,10 @@ pub(crate) struct Configuration {
     #[clap(name ="collect-interval", long = "collect-interval", env = "COLLECT_INTERVAL", default_value = "15000")]
     collect_interval: u64,
 
-    #[clap(name ="exclude_collectors", long = "exclude_collectors", env = "EXCLUDE_COLLECTORS", value_parser, value_delimiter(';'))]
+    #[clap(name ="exclude-collectors", long = "exclude-collectors", env = "EXCLUDE_COLLECTORS", value_parser, value_delimiter(';'))]
     disabled_collectors: Vec<Collectors>,
 
-    #[clap(name ="common-labels", short = 'l', long = "common_labels", env = "COMMON_LABELS", value_parser = MapValueParser::new())]
+    #[clap(name ="common-labels", short = 'l', long = "common-labels", env = "COMMON_LABELS", value_parser = MapValueParser::new())]
     common_labels: HashMap<String,String>,
 }
 
@@ -155,16 +145,18 @@ async fn main() {
     config.disabled_collectors.sort();
     config.disabled_collectors.dedup();
 
-    println!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
+    info!("hasura-metrics-adapter on {0} for hasura at {1} parsing hasura log '{2}'", config.listen_addr, config.hasura_addr, config.log_file);
 
     debug!("Configuration: {:?}", config);
 
     let terminate_rx = signal_handler();
 
+    let metric_obj: Telemetry = Telemetry::new(config.common_labels.clone());
+
     let res = tokio::try_join!(
         webserver(&config),
-        logreader::read_file(&config.log_file, config.sleep_time, &terminate_rx),
-        collectors::run_metadata_collector(&config, &terminate_rx)
+        logreader::read_file(&config.log_file, &metric_obj, config.sleep_time, &terminate_rx),
+        collectors::run_metadata_collector(&config, &metric_obj, &terminate_rx)
     );
     match res {
         Err(e) => {

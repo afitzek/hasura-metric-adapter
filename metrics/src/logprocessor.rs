@@ -1,58 +1,9 @@
-use lazy_static::lazy_static;
-use prometheus::{register_histogram_vec, HistogramVec};
-use prometheus::{register_int_counter, IntCounter};
-use prometheus::{register_int_counter_vec, IntCounterVec};
-use prometheus::{register_int_gauge, IntGauge};
-
 use log::warn;
 
 use serde::Deserialize;
 use serde_json::{from_str, from_value};
+use crate::Telemetry;
 
-lazy_static! {
-    static ref ACTIVE_WEBSOCKETS: IntGauge =
-        register_int_gauge!("hasura_websockets_active", "Active web socket connections").unwrap();
-    static ref ACTIVE_WEBSOCKET_OPERATIONS: IntGauge = register_int_gauge!(
-        "hasura_websockets_operations_active",
-        "Active web socket operations like subscriptions"
-    )
-    .unwrap();
-    static ref WEBSOCKET_OPERATIONS: IntCounterVec = register_int_counter_vec!(
-        "hasura_websockets_operations",
-        "Counts websocket operation by operation name and error code (on success error is '' other its the error code) (unnnamed operations are '')",
-        &["operation", "error"]
-    )
-    .unwrap();
-    static ref LOG_LINES_COUNTER_TOTAL: IntCounter = register_int_counter!(
-        "hasura_log_lines_counter_total",
-        "Total Number of log lines processed"
-    )
-    .unwrap();
-    static ref LOG_LINES_COUNTER: IntCounterVec = register_int_counter_vec!(
-        "hasura_log_lines_counter",
-        "Number of log lines processed",
-        &["logtype"]
-    )
-    .unwrap();
-    static ref REQUEST_COUNTER: IntCounterVec = register_int_counter_vec!(
-        "hasura_request_counter",
-        "Number requests",
-        &["url", "status"]
-    )
-    .unwrap();
-    static ref REQUEST_QUERY_COUNTER: IntCounterVec = register_int_counter_vec!(
-        "hasura_request_query_counter",
-        "Number query requests (on success error is '' other its the error code) (unnnamed operations are '')",
-        &["operation", "error"]
-    )
-    .unwrap();
-    static ref QUERY_EXECUTION_TIMES: HistogramVec = register_histogram_vec!(
-        "hasura_query_execution_seconds",
-        "Query execution Times (on success error is '' other its the error code) (unnnamed operations are '')",
-        &["operation", "error"]
-    )
-    .expect("Failed to create ");
-}
 
 #[derive(Deserialize)]
 pub struct BaseLog {
@@ -123,11 +74,11 @@ pub struct HttpLogDetails {
     pub http_info: HttpLogDetailHttpInfo,
 }
 
-async fn handle_http_log(log: &BaseLog) {
+async fn handle_http_log(log: &BaseLog, metric_obj: &Telemetry) {
     let detail_result = from_value::<HttpLogDetails>(log.detail.clone());
     match detail_result {
         Ok(http) => {
-            REQUEST_COUNTER
+            metric_obj.REQUEST_COUNTER
                 .with_label_values(&[
                     http.http_info.url.as_str(),
                     format!("{}", http.http_info.status).as_str(),
@@ -138,12 +89,12 @@ async fn handle_http_log(log: &BaseLog) {
                 let error = http.operation.error.map_or("".to_string(), |v| v.code);
 
                 let operation = query.operation_name.unwrap_or("".to_string());
-                REQUEST_QUERY_COUNTER
+                metric_obj.REQUEST_QUERY_COUNTER
                     .with_label_values(&[operation.as_str(), error.as_str()])
                     .inc();
 
                 if let Some(exec_time) = http.operation.query_execution_time {
-                    QUERY_EXECUTION_TIMES
+                    metric_obj.QUERY_EXECUTION_TIMES
                         .with_label_values(&[operation.as_str(), error.as_str()])
                         .observe(exec_time);
                 }
@@ -193,30 +144,30 @@ pub struct WebSocketDetail {
     pub connection_info: WebSocketDetailConnInfo,
 }
 
-async fn handle_websocket_log(log: &BaseLog) {
+async fn handle_websocket_log(log: &BaseLog, metric_obj: &Telemetry) {
     let detail_result = from_value::<WebSocketDetail>(log.detail.clone());
     match detail_result {
         Ok(http) => {
             match &http.event.event_type as &str {
-                "accepted" => ACTIVE_WEBSOCKETS.inc(),
-                "closed" => ACTIVE_WEBSOCKETS.dec(),
+                "accepted" => metric_obj.ACTIVE_WEBSOCKET.inc(),
+                "closed" => metric_obj.ACTIVE_WEBSOCKET.dec(),
                 "operation" => {
                     if let Some(detail) = http.event.detail {
                         let op_name = detail.operation_name.unwrap_or("".to_string());
                         match &detail.operation_type.operation_type as &str {
-                            "started" => ACTIVE_WEBSOCKET_OPERATIONS.inc(),
+                            "started" => metric_obj.ACTIVE_WEBSOCKET_OPERATIONS.inc(),
                             "stopped" => {
-                                WEBSOCKET_OPERATIONS
+                                metric_obj.WEBSOCKET_OPERATIONS
                                     .with_label_values(&[op_name.as_str(), ""])
                                     .inc();
-                                ACTIVE_WEBSOCKET_OPERATIONS.dec()
+                                metric_obj.ACTIVE_WEBSOCKET_OPERATIONS.dec()
                             }
                             "query_err" => {
                                 let err = detail
                                     .operation_type
                                     .detail
                                     .map_or("".to_string(), |v| v.code);
-                                WEBSOCKET_OPERATIONS
+                                metric_obj.WEBSOCKET_OPERATIONS
                                     .with_label_values(&[op_name.as_str(), err.as_str()])
                                     .inc();
                             }
@@ -233,21 +184,21 @@ async fn handle_websocket_log(log: &BaseLog) {
     };
 }
 
-pub async fn log_processor(logline: &String) {
+pub async fn log_processor(logline: &String, metric_obj: &Telemetry) {
     //println!("{}", logline);
-    LOG_LINES_COUNTER_TOTAL.inc();
+    metric_obj.LOG_LINES_COUNTER_TOTAL.inc();
     let log_result = from_str::<BaseLog>(logline);
     match log_result {
         Ok(log) => {
-            LOG_LINES_COUNTER
+            metric_obj.LOG_LINES_COUNTER
                 .with_label_values(&[log.logtype.as_str()])
                 .inc();
             match &log.logtype as &str {
                 "http-log" => {
-                    handle_http_log(&log).await;
+                    handle_http_log(&log,metric_obj).await;
                 }
                 "websocket-log" => {
-                    handle_websocket_log(&log).await;
+                    handle_websocket_log(&log,metric_obj).await;
                 }
                 _ => {}
             };
