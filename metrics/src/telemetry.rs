@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use prometheus::{HistogramVec, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts};
+use prometheus::{HistogramOpts, HistogramVec, IntCounter, IntCounterVec, IntGauge, IntGaugeVec, Opts};
 use prometheus::{register_int_counter_vec, register_int_counter, register_int_gauge, register_int_gauge_vec, register_histogram_vec};
 
 #[allow(non_snake_case)]
@@ -41,7 +41,7 @@ pub struct Telemetry {
 }
 
 impl Telemetry {
-    pub fn new(common_labels: HashMap<String, String>) -> Telemetry {
+    pub fn new(common_labels: HashMap<String, String>, histogram_buckets: Vec<f64>) -> Telemetry {
 
         let errors_total_opts = Opts {
             namespace: String::from(""),
@@ -243,6 +243,18 @@ impl Telemetry {
             const_labels : common_labels.clone(),
             variable_labels : vec![]
         };
+        let query_execution_seconds_opts = Opts {
+            namespace: String::from(""),
+            subsystem: String::from(""),
+            name : String::from("hasura_query_execution_seconds"),
+            help : String::from("Query execution time. On success, error is '', otherwise it's the error code. Unnnamed operations are ''"),
+            const_labels : common_labels.clone(),
+            variable_labels : vec![]
+        };
+        let query_execution_seconds_histogram_opts = HistogramOpts {
+            common_opts: query_execution_seconds_opts,
+            buckets: histogram_buckets
+        };
 
 
         Telemetry {
@@ -277,10 +289,7 @@ impl Telemetry {
 
             REQUEST_COUNTER: register_int_counter_vec!(request_counter_opts,&["url", "status"]).unwrap(),
             REQUEST_QUERY_COUNTER: register_int_counter_vec!(request_query_counter_opts,&["operation", "error"]).unwrap(),
-            QUERY_EXECUTION_TIMES: register_histogram_vec!(
-                String::from("hasura_query_execution_seconds"),
-                String::from("Query execution time. On success, error is '', otherwise it's the error code. Unnnamed operations are ''"),
-                &["operation", "error"]).unwrap()
+            QUERY_EXECUTION_TIMES: register_histogram_vec!(query_execution_seconds_histogram_opts,&["operation", "error"]).unwrap()
         }
 
     }

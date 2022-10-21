@@ -108,6 +108,9 @@ pub(crate) struct Configuration {
 
     #[clap(name ="common-labels", short = 'l', long = "common-labels", env = "COMMON_LABELS", value_parser = MapValueParser::new())]
     common_labels: HashMap<String,String>,
+
+    #[clap(name ="histogram-buckets", long = "histogram-buckets", env = "HISTOGRAM_BUCKETS", value_parser, value_delimiter(';'))]
+    histogram_buckets: Vec<f64>,
 }
 
 async fn signal_handler_ctrl_c(tx: mpsc::Sender<()>) -> std::io::Result<()> {
@@ -151,7 +154,7 @@ async fn main() {
 
     let terminate_rx = signal_handler();
 
-    let metric_obj: Telemetry = Telemetry::new(config.common_labels.clone());
+    let metric_obj: Telemetry = Telemetry::new(config.common_labels.clone(),config.histogram_buckets.clone());
 
     let res = tokio::try_join!(
         webserver(&config),
