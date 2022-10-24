@@ -31,7 +31,7 @@ OPTIONS:
         --collect-interval <collect-interval>
             [env: COLLECT_INTERVAL=] [default: 15000]
 
-        --exclude_collectors <exclude_collectors>
+        --exclude_collectors <collector>[;collector...]
             [env: EXCLUDE_COLLECTORS=] [possible values: cron-triggers, event-triggers,
             scheduled-events, metadata-inconsistency]
 
