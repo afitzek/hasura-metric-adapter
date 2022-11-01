@@ -23,3 +23,4 @@ clap = { version = "3", features = ["env", "cargo", "derive"] }
 notify = "4.0.17"
 snafu = "0.7.1"
 regex = "1.6"
+openssl = { version = "0.10.40", features = ["vendored"] }
