@@ -21,7 +21,7 @@ some collectors are disabled.
 ## Program help
 
 ```
-metrics 0.1.6
+metrics 0.1.7
 A prometheus metric generator for Hasura based on the log stream
 
 USAGE:
@@ -44,6 +44,12 @@ OPTIONS:
         --hasura-endpoint <hasura-endpoint>
             [env: HASURA_GRAPHQL_ENDPOINT=] [default: http://localhost:8080]
 
+        --histogram-buckets <histogram-buckets>
+            [env: HISTOGRAM_BUCKETS=]
+
+    -l, --common-labels <common-labels>
+            [env: COMMON_LABELS=]
+
         --listen <listen>
             [env: LISTEN_ADDR=] [default: 0.0.0.0:9090]
 
@@ -55,6 +61,12 @@ OPTIONS:
 
     -V, --version
             Print version information
+```
+
+If you want to provide multiple values for some key in ENVIROMENT VARIABLE, they should be separated by `;`, for example:
+
+```
+EXCLUDE_COLLECTORS=cron-triggers;event-triggers;scheduled-events
 ```
 
 ## Metrics
