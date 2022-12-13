@@ -10,6 +10,7 @@ fn create_cron_trigger_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*), trigger_name FROM hdb_catalog.hdb_cron_events WHERE status = 'error' GROUP BY trigger_name;".to_string()
@@ -18,6 +19,7 @@ fn create_cron_trigger_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*), trigger_name FROM hdb_catalog.hdb_cron_events WHERE status = 'delivered' GROUP BY trigger_name;".to_string()
@@ -26,6 +28,7 @@ fn create_cron_trigger_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*), trigger_name FROM hdb_catalog.hdb_cron_events WHERE status = 'scheduled' GROUP BY trigger_name;".to_string()
@@ -34,6 +37,7 @@ fn create_cron_trigger_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*), trigger_name FROM hdb_catalog.hdb_cron_events WHERE status = 'error' or status = 'delivered' GROUP BY trigger_name;".to_string()
