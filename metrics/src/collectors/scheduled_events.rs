@@ -9,6 +9,7 @@ fn create_scheduled_event_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*) FROM hdb_catalog.hdb_scheduled_events WHERE status = 'error';".to_string()
@@ -17,6 +18,7 @@ fn create_scheduled_event_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*) FROM hdb_catalog.hdb_scheduled_events WHERE status = 'delivered';".to_string()
@@ -25,6 +27,7 @@ fn create_scheduled_event_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*) FROM hdb_catalog.hdb_scheduled_events WHERE status = 'scheduled';".to_string()
@@ -33,6 +36,7 @@ fn create_scheduled_event_request() -> SQLRequest {
                 RunSQLQuery{
                     request_type: "run_sql".to_string(),
                     args: RunSQLArgs {
+                        source: "default".to_string(),
                         cascade: false,
                         read_only: true,
                         sql: "SELECT COUNT(*) FROM hdb_catalog.hdb_scheduled_events WHERE status = 'error' or status = 'delivered';".to_string()

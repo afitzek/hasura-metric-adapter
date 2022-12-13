@@ -265,10 +265,10 @@ impl Telemetry {
             CRON_TRIGGER_SUCCESSFUL: register_int_gauge_vec!(cron_trigger_successful_opts,&["trigger_name"]).unwrap(),
             CRON_TRIGGER_FAILED: register_int_gauge_vec!(cron_trigger_failed_opts,&["trigger_name"]).unwrap(),
 
-            EVENT_TRIGGER_PENDING: register_int_gauge_vec!(event_trigger_pending_opts,&["trigger_name"]).unwrap(),
-            EVENT_TRIGGER_PROCESSED: register_int_gauge_vec!(event_trigger_processed_opts,&["trigger_name"]).unwrap(),
-            EVENT_TRIGGER_SUCCESSFUL: register_int_gauge_vec!(event_trigger_successful_opts,&["trigger_name"]).unwrap(),
-            EVENT_TRIGGER_FAILED: register_int_gauge_vec!(event_trigger_failed_opts,&["trigger_name"]).unwrap(),
+            EVENT_TRIGGER_PENDING: register_int_gauge_vec!(event_trigger_pending_opts,&["trigger_name","database_name"]).unwrap(),
+            EVENT_TRIGGER_PROCESSED: register_int_gauge_vec!(event_trigger_processed_opts,&["trigger_name","database_name"]).unwrap(),
+            EVENT_TRIGGER_SUCCESSFUL: register_int_gauge_vec!(event_trigger_successful_opts,&["trigger_name","database_name"]).unwrap(),
+            EVENT_TRIGGER_FAILED: register_int_gauge_vec!(event_trigger_failed_opts,&["trigger_name","database_name"]).unwrap(),
 
             HEALTH_CHECK: register_int_gauge!(health_check_opts).unwrap(),
 

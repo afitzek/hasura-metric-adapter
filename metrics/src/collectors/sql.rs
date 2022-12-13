@@ -9,7 +9,7 @@ pub struct SQLRequest {
     #[serde(rename = "type")]
     pub request_type: String,
     #[serde(rename = "args")]
-    pub args: std::vec::Vec<RunSQLQuery>,
+    pub args: Vec<RunSQLQuery>,
 }
 
 #[derive(Serialize)]
@@ -28,6 +28,8 @@ pub struct RunSQLArgs {
     pub read_only: bool,
     #[serde(rename = "sql")]
     pub sql: String,
+    #[serde(rename = "source")]
+    pub source: String,
 }
 
 #[derive(Deserialize)]
@@ -35,7 +37,7 @@ pub struct SQLResult {
     #[serde(rename = "result_type")]
     pub result_type: String,
     #[serde(rename = "result")]
-    pub result: std::vec::Vec<std::vec::Vec<String>>,
+    pub result: Vec<Vec<String>>,
 }
 
 pub(crate) async fn make_sql_request(request: &SQLRequest, cfg: &crate::Configuration) -> Result<Response, Whatever> {
