@@ -189,17 +189,13 @@ async fn fetch_metadata(cfg: &Configuration, metric_obj: &Telemetry) -> Map<Stri
     return metadata;
 }
 
-async fn dummy() {
-    return;
-}
 pub(crate) async fn check_metadata(cfg: &Configuration, metric_obj: &Telemetry) -> Map<String, Value> {
-    let consistent: bool;
-    let metadata;
+    let mut metadata = json!({}).as_object().unwrap().clone();
 
     tokio::join!(
         fetch_version(cfg, metric_obj),
-        {
-            consistent = fetch_metadata_consistency(cfg, metric_obj).await;
+        async {
+            let consistent = fetch_metadata_consistency(cfg, metric_obj).await;
 
             if consistent {
                 debug!("Metadata is consistent");
@@ -207,9 +203,7 @@ pub(crate) async fn check_metadata(cfg: &Configuration, metric_obj: &Telemetry) 
             } else {
                 warn!("Failed to collect metadata because it is inconsistent");
                 metric_obj.ERRORS_TOTAL.with_label_values(&["metadata"]).inc();
-                metadata = json!({}).as_object().unwrap().clone()
             }
-            dummy()
         }
     );
 

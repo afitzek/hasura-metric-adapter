@@ -18,9 +18,9 @@ pub(crate) async fn run_metadata_collector(cfg: &Configuration, metric_obj: &Tel
             health::check_health(cfg,metric_obj),
             scheduled_events::check_scheduled_events(&cfg,metric_obj),
             cron_triggers::check_cron_triggers(&cfg,metric_obj),
-            {
-                metadata = metadata::check_metadata(cfg,metric_obj).await;
-                event_triggers::check_event_triggers(&cfg,metric_obj, &metadata)
+            async {
+                let metadata = metadata::check_metadata(cfg,metric_obj).await;
+                event_triggers::check_event_triggers(&cfg,metric_obj, &metadata).await;
             }
         );
 
