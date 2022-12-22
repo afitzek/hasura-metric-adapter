@@ -1,6 +1,6 @@
 use std::sync::mpsc;
 use std::sync::mpsc::{RecvTimeoutError,TryRecvError};
-use log::{error, info, warn};
+use log::{debug, error, info, warn};
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
@@ -76,6 +76,7 @@ async fn process_file(file_name: &String, metric_obj: &Telemetry, file: File, sl
 
         // read data as long as there's new data available
         loop {
+            debug!("Reading line from logfile");
             match termination_rx.try_recv() {
                 Ok(_) | Err(TryRecvError::Disconnected) => {
                     return Ok(false)
