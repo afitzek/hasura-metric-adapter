@@ -1,6 +1,6 @@
 use super::sql::*;
 use crate::{Configuration, Telemetry};
-use log::{warn, info};
+use log::{warn, info, debug};
 
 fn create_scheduled_event_request() -> SQLRequest {
     SQLRequest {
@@ -51,6 +51,7 @@ pub(crate) async fn check_scheduled_events(cfg: &Configuration,metric_obj: &Tele
         info!("Not collecting scheduled event.");
         return;
     }
+    debug!("Running SQL query for scheduled events");
     let sql_result = make_sql_request(&create_scheduled_event_request(), cfg).await;
     match sql_result {
         Ok(v) => {

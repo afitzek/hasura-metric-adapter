@@ -1,6 +1,6 @@
 use super::sql::*;
 use crate::{Configuration, Telemetry};
-use log::{warn, info};
+use log::{warn, info, debug};
 
 
 fn create_cron_trigger_request() -> SQLRequest {
@@ -52,6 +52,7 @@ pub(crate) async fn check_cron_triggers(cfg: &Configuration, metric_obj: &Teleme
         info!("Not collecting cron triggers.");
         return;
     }
+    debug!("Running SQL query for cron triggers");
     let sql_result = make_sql_request(&create_cron_trigger_request(), cfg).await;
     match sql_result {
         Ok(v) => {

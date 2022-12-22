@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::{Configuration, Telemetry};
-use log::warn;
+use log::{warn,debug};
 use serde::{Serialize, Deserialize};
 use serde_json::{json, Map, Value};
 
@@ -202,6 +202,7 @@ pub(crate) async fn check_metadata(cfg: &Configuration, metric_obj: &Telemetry) 
             consistent = fetch_metadata_consistency(cfg, metric_obj).await;
 
             if consistent {
+                debug!("Metadata is consistent");
                 metadata = fetch_metadata(cfg, metric_obj).await
             } else {
                 warn!("Failed to collect metadata because it is inconsistent");

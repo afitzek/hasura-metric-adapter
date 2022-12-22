@@ -1,6 +1,6 @@
 use super::sql::*;
 use crate::{Configuration,  Telemetry};
-use log::{warn, info};
+use log::{warn, info, debug};
 use serde_json::{Map, Value};
 
 fn create_event_trigger_request(request_type: &String, source: &String) -> SQLRequest {
@@ -61,6 +61,7 @@ async fn process_database (data_source: &Map<String, Value>,  cfg: &Configuratio
     }
 
     if sql_type != "" {
+        debug!("Querying data from database {}",data_source["name"]);
         if let Some(db_name) = data_source["name"].as_str() {
             let sql_result = make_sql_request(&create_event_trigger_request(&sql_type.to_string(), &db_name.to_string()), cfg).await;
             match sql_result {
@@ -104,7 +105,7 @@ async fn process_database (data_source: &Map<String, Value>,  cfg: &Configuratio
                             }
                         }
                     } else {
-                        warn!( "Failed to collect event triggers check invalid status code: {}", v.status() );
+                        warn!( "Failed to collect event triggers from database {}. Check invalid status code: {}", data_source["name"], v.status() );
                         metric_obj.ERRORS_TOTAL.with_label_values(&["event"]).inc();
                     }
                 }
@@ -123,6 +124,7 @@ pub(crate) async fn check_event_triggers(cfg: &Configuration, metric_obj: &Telem
         return;
     }
 
+    debug!("Processing all the databases to look for event triggers");
     let _ = metadata["metadata"]["sources"].as_array().unwrap().iter().for_each(|data_source| {
         async move {
             process_database(data_source.as_object().unwrap(), cfg, metric_obj).await;

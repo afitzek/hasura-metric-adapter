@@ -1,5 +1,6 @@
 use std::sync::mpsc;
 use std::sync::mpsc::RecvTimeoutError;
+use log::debug;
 use crate::{Configuration, Telemetry};
 
 mod sql;
@@ -11,8 +12,7 @@ mod event_triggers;
 
 pub(crate) async fn run_metadata_collector(cfg: &Configuration, metric_obj: &Telemetry, termination_rx: &mpsc::Receiver<()>) -> std::io::Result<()> {
     loop {
-
-        let metadata;
+        debug!("Running metadata collector");
 
         tokio::join!(
             health::check_health(cfg,metric_obj),
@@ -23,8 +23,6 @@ pub(crate) async fn run_metadata_collector(cfg: &Configuration, metric_obj: &Tel
                 event_triggers::check_event_triggers(&cfg,metric_obj, &metadata)
             }
         );
-
-
 
         match termination_rx.recv_timeout(std::time::Duration::from_millis(cfg.collect_interval)) {
             Ok(_) | Err(RecvTimeoutError::Disconnected) => return Ok(()),
