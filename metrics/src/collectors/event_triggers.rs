@@ -127,14 +127,13 @@ pub(crate) async fn check_event_triggers(cfg: &Configuration, metric_obj: &Telem
 
     debug!("Processing all the databases to look for event triggers");
 
-    const MAX_CONCURRENT_JUMPERS: usize = 100;
     let list_tmp = metadata["metadata"]["sources"].as_array();
 
     match list_tmp {
         Some(list) => {
 
             let stream = stream::iter(list);
-            stream.for_each_concurrent(MAX_CONCURRENT_JUMPERS, |data_source| async move {
+            stream.for_each_concurrent(cfg.concurrency_limit, |data_source| async move {
 
                 debug!("Processing database {} of kind {}",data_source["name"],data_source["kind"]);
                 process_database(data_source.as_object().unwrap(), cfg, metric_obj).await;

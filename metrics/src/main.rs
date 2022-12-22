@@ -111,6 +111,9 @@ pub(crate) struct Configuration {
 
     #[clap(name ="histogram-buckets", long = "histogram-buckets", env = "HISTOGRAM_BUCKETS", value_parser, value_delimiter(';'))]
     histogram_buckets: Vec<f64>,
+
+    #[clap(name ="concurrency-limit", long = "concurrency-limit", env = "CONCURRENCY_LIMIT", default_value = "0")]
+    concurrency_limit: usize,
 }
 
 async fn signal_handler_ctrl_c(tx: mpsc::Sender<()>) -> std::io::Result<()> {
