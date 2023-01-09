@@ -1,10 +1,9 @@
 
 use reqwest::Response;
 use serde::{Deserialize, Serialize};
-use log::warn;
 use snafu::{prelude::*, Whatever};
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct SQLRequest {
     #[serde(rename = "type")]
     pub request_type: String,
@@ -12,7 +11,7 @@ pub struct SQLRequest {
     pub args: Vec<RunSQLQuery>,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct RunSQLQuery {
     #[serde(rename = "type")]
     pub request_type: String,
@@ -20,7 +19,7 @@ pub struct RunSQLQuery {
     pub args: RunSQLArgs,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Debug)]
 pub struct RunSQLArgs {
     #[serde(rename = "cascade")]
     pub cascade: bool,
@@ -32,12 +31,21 @@ pub struct RunSQLArgs {
     pub source: String,
 }
 
-#[derive(Deserialize)]
+#[derive(Deserialize,Debug)]
 pub struct SQLResult {
-    #[serde(rename = "result_type")]
+    // #[serde(rename = "result_type")]
     pub result_type: String,
-    #[serde(rename = "result")]
-    pub result: Vec<Vec<String>>,
+    // #[serde(rename = "result")]
+    pub result: Option<Vec<SQLResultItem>>,
+}
+
+#[derive(Deserialize,Debug)]
+#[serde(untagged)]
+pub enum SQLResultItem {
+    IntStr(i64,String),
+    StrStr(String,String),
+    Str(Vec<String>),
+    Int(Vec<i64>)
 }
 
 pub(crate) async fn make_sql_request(request: &SQLRequest, cfg: &crate::Configuration) -> Result<Response, Whatever> {
@@ -58,25 +66,25 @@ pub(crate) async fn make_sql_request(request: &SQLRequest, cfg: &crate::Configur
             Err(e) => whatever!("Failed to run SQL request against hasura: {}", e)
     }
 }
-pub(crate) fn get_sql_entry_value(entry: &Vec<String>) -> Option<(i64, Option<String>)> {
-    if entry.len() >= 1 && entry.len() <= 2 {
-        let str_value = entry.get(0).unwrap();
-        if let Some(value) = str_value.parse::<i64>().ok() {
-            return Some((value, entry.get(1).map(|v| v.to_owned())));
-        } else {
-            warn!(
-                "Failed to collect scheduled event count result not a number: {}",
-                str_value
-            );
-        }
-    }
-    None
-}
-
-
-pub(crate) fn get_sql_result_value(result: &SQLResult) -> Option<(i64, Option<String>)> {
-    if let Some(entry) = result.result.get(1) {
-        return get_sql_entry_value(entry);
-    }
-    None
-}
+// pub(crate) fn get_sql_entry_value(entry: &Vec<String>) -> Option<(i64, Option<String>)> {
+//     if entry.len() >= 1 && entry.len() <= 2 {
+//         let str_value = entry.get(0).unwrap();
+//         if let Some(value) = str_value.parse::<i64>().ok() {
+//             return Some((value, entry.get(1).map(|v| v.to_owned())));
+//         } else {
+//             warn!(
+//                 "Failed to collect scheduled event count result not a number: {}",
+//                 str_value
+//             );
+//         }
+//     }
+//     None
+// }
+//
+//
+// pub(crate) fn get_sql_result_value(result: &SQLResult) -> Option<(i64, Option<String>)> {
+//     if let Some(entry) = result.result.get(1) {
+//         return get_sql_entry_value(entry);
+//     }
+//     None
+// }
