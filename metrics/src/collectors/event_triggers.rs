@@ -3,6 +3,7 @@ use crate::{Configuration,  Telemetry};
 use log::{warn, info, debug};
 use serde_json::{Map, Value};
 use futures::stream::{self, StreamExt};
+use crate::telemetry::MetricOption;
 
 fn create_event_trigger_request(request_type: &String, source: &String) -> SQLRequest {
     SQLRequest {
@@ -70,101 +71,26 @@ async fn process_database (data_source: &Map<String, Value>,  cfg: &Configuratio
                 Ok(v) => {
                     if v.status() == reqwest::StatusCode::OK {
                         let response = v.json::<Vec<SQLResult>>().await;
-                        debug!("Response: {:#?}", response);
+                        debug!("Response: {:?}", response);
                         match response {
                             Ok(v) => {
-                                if let Some(failed) = v.get(0) {
-                                    if failed.result_type == String::from("TuplesOk") {
-                                        failed.result.as_ref().unwrap().iter().skip(1).for_each(|entry| {
-                                            match entry {
-                                                SQLResultItem::IntStr(value,trigger_name) => {
-                                                    metric_obj.EVENT_TRIGGER_FAILED.with_label_values(&[trigger_name, db_name]).set(*value);
-                                                }
-                                                SQLResultItem::StrStr(count,trigger_name) => {
-                                                    let value = match count.trim().parse::<i64>() {
-                                                        Ok(value) => value,
-                                                        _ => 0,
-                                                    };
-                                                    metric_obj.EVENT_TRIGGER_FAILED.with_label_values(&[trigger_name, db_name]).set(value);
-                                                }
-                                                default => {
-                                                    warn!("Failed to process entry '{:?}', expected two values [ count, trigger_name ]",default);
-                                                }
-                                            }
-                                        });
-                                    } else {
-                                        info!("Result of SQL query for 'failed event trigger' on database {} has failed or is empty: {:?}",db_name.to_string(),failed);
-                                    }
-                                }
-                                if let Some(success) = v.get(1) {
-                                    if success.result_type == "TuplesOk" {
-                                        success.result.as_ref().unwrap().iter().skip(1).for_each(|entry| {
-                                            match entry {
-                                                SQLResultItem::IntStr(value,trigger_name) => {
-                                                    metric_obj.EVENT_TRIGGER_SUCCESSFUL.with_label_values(&[trigger_name, db_name]).set(*value);
-                                                }
-                                                SQLResultItem::StrStr(count,trigger_name) => {
-                                                    let value = match count.trim().parse::<i64>() {
-                                                        Ok(value) => value,
-                                                        _ => 0,
-                                                    };
-                                                    metric_obj.EVENT_TRIGGER_SUCCESSFUL.with_label_values(&[trigger_name, db_name]).set(value);
-                                                }
-                                                default => {
-                                                    warn!("Failed to process entry '{:?}', expected two values [ count, trigger_name ]",default);
-                                                }
-                                            }
-                                        });
-                                    } else {
-                                        info!("Result of SQL query for 'successful event trigger' on database {} has failed or is empty: {:?}",db_name.to_string(),success);
-                                    }
-                                }
-                                if let Some(pending) = v.get(2) {
-                                    if pending.result_type == "TuplesOk" {
-                                        pending.result.as_ref().unwrap().iter().skip(1).for_each(|entry| {
-                                            match entry {
-                                                SQLResultItem::IntStr(value,trigger_name) => {
-                                                    metric_obj.EVENT_TRIGGER_PENDING.with_label_values(&[trigger_name, db_name]).set(*value);
-                                                }
-                                                SQLResultItem::StrStr(count,trigger_name) => {
-                                                    let value = match count.trim().parse::<i64>() {
-                                                        Ok(value) => value,
-                                                        _ => 0,
-                                                    };
-                                                    metric_obj.EVENT_TRIGGER_PENDING.with_label_values(&[trigger_name, db_name]).set(value);
-                                                }
-                                                default => {
-                                                    warn!("Failed to process entry '{:?}', expected two values [ count, trigger_name ]",default);
-                                                }
-                                            }
-                                        });
-                                    } else {
-                                        info!("Result of SQL query for 'pending event trigger' on database {} has failed or is empty: {:?}",db_name.to_string(),pending);
-                                    }
-                                }
-                                if let Some(processed) = v.get(3) {
-                                    if processed.result_type == "TuplesOk" {
-                                        processed.result.as_ref().unwrap().iter().skip(1).for_each(|entry| {
-                                            match entry {
-                                                SQLResultItem::IntStr(value,trigger_name) => {
-                                                    metric_obj.EVENT_TRIGGER_PROCESSED.with_label_values(&[trigger_name, db_name]).set(*value);
-                                                }
-                                                SQLResultItem::StrStr(count,trigger_name) => {
-                                                    let value = match count.trim().parse::<i64>() {
-                                                        Ok(value) => value,
-                                                        _ => 0,
-                                                    };
-                                                    metric_obj.EVENT_TRIGGER_PROCESSED.with_label_values(&[trigger_name, db_name]).set(value);
-                                                }
-                                                default => {
-                                                    warn!("Failed to process entry '{:?}', expected two values [ count, trigger_name ]",default);
-                                                }
-                                            }
-                                        });
-                                    } else {
-                                        info!("Result of SQL query for 'processed event trigger' on database {} has failed or is empty: {:?}",db_name.to_string(), processed);
-                                    }
-                                }
+                                v.iter().enumerate().for_each(|(index, query)| {
+
+                                    let obj = match index as i32 {
+                                        // Index values must match create_event_trigger_request() for coherence
+                                        0 => Ok((MetricOption::IntGaugeVec(&metric_obj.EVENT_TRIGGER_FAILED), "failed event triggers")),
+                                        1 => Ok((MetricOption::IntGaugeVec(&metric_obj.EVENT_TRIGGER_SUCCESSFUL),"successful event triggers")),
+                                        2 => Ok((MetricOption::IntGaugeVec(&metric_obj.EVENT_TRIGGER_PENDING),"pending event triggers")),
+                                        3 => Ok((MetricOption::IntGaugeVec(&metric_obj.EVENT_TRIGGER_PROCESSED),"processed event triggers")),
+                                        _ => {
+                                            warn!("Unexpected entry {:?}",query);
+                                            Err(format!("Unexpected entry {:?}",query))
+                                        }
+                                    };
+
+                                    process_sql_result(query, obj,Some(db_name));
+
+                                });
                             }
                             Err(e) => {
                                 warn!( "Failed to collect event triggers check invalid response format: {}", e );

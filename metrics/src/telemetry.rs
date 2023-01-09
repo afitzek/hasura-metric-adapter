@@ -40,6 +40,11 @@ pub struct Telemetry {
 
 }
 
+pub enum MetricOption<'a> {
+    IntGaugeVec(&'a IntGaugeVec),
+    IntGauge(&'a IntGauge)
+}
+
 impl Telemetry {
     pub fn new(common_labels: HashMap<String, String>, histogram_buckets: Vec<f64>) -> Telemetry {
 
