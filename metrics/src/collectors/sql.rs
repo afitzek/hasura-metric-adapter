@@ -1,7 +1,8 @@
-
+use log::{info};
 use reqwest::Response;
 use serde::{Deserialize, Serialize};
 use snafu::{prelude::*, Whatever};
+use crate::telemetry::MetricOption;
 
 #[derive(Serialize, Debug)]
 pub struct SQLRequest {
@@ -64,6 +65,82 @@ pub(crate) async fn make_sql_request(request: &SQLRequest, cfg: &crate::Configur
         .await {
             Ok(v) => Ok(v),
             Err(e) => whatever!("Failed to run SQL request against hasura: {}", e)
+    }
+}
+
+pub(crate) fn get_sql_entry_value(entry: &SQLResultItem ) -> SQLResultItem {
+    match entry {
+        SQLResultItem::IntStr(value,trigger_name) => {
+            SQLResultItem::IntStr(*value, trigger_name.to_string())
+        }
+        SQLResultItem::StrStr(count,trigger_name) => {
+            let value = match count.trim().parse::<i64>() {
+                Ok(value) => value,
+                _ => 0,
+            };
+            SQLResultItem::IntStr(value,trigger_name.to_string())
+        }
+        SQLResultItem::Str(vect) => {
+            let parsed_count;
+            if vect.len() == 1 {
+                parsed_count = match vect[0].trim().parse::<i64>() {
+                    Ok(value) => value,
+                    Err(_) => 0,
+                };
+            } else {
+                print!("Expected one value in array '{:?}'",vect);
+                parsed_count = 0;
+            }
+
+            SQLResultItem::IntStr(parsed_count,"".to_string())
+        }
+        SQLResultItem::Int(vect) => {
+            let count;
+            if vect.len() == 1 {
+                count = vect[0];
+            } else {
+                count = 0;
+                print!("Expected one value in array '{:?}'",vect);
+            }
+            SQLResultItem::IntStr(count,"".to_string())
+        }
+        // default => {
+        //     warn!("Failed to process entry '{:?}', expected either two values [ count, trigger_name ] or one value [ count ]",default);
+        //     SQLResultItem::IntStr(0,"".to_string())
+        // }
+    }
+}
+
+pub(crate) fn process_sql_result<T>(query: &SQLResult, obj: Result<(MetricOption,&str),T>, db_name_opt: Option<&str>) {
+    if let Ok((metric, metric_name)) = obj {
+        if query.result_type == String::from("TuplesOk") {
+            query.result.as_ref().unwrap().iter().skip(1).for_each(|entry| {
+                let (value, trigger_name) = if let SQLResultItem::IntStr(value, trigger_name) = get_sql_entry_value(entry) {
+                    (value, trigger_name)
+                } else {
+                    (0,"".to_string())
+                };
+
+                match metric {
+                    MetricOption::IntGaugeVec(metric) => {
+                        if let Some(db_name) = db_name_opt {
+                            metric.with_label_values( & [trigger_name.as_str(), db_name]).set(value);
+                        } else {
+                            metric.with_label_values( & [trigger_name.as_str()]).set(value);
+                        }
+                    }
+                    MetricOption::IntGauge(metric) => {
+                        metric.set(value)
+                    }
+                }
+            });
+        } else {
+            if let Some(db_name) = db_name_opt {
+                info!("Result of SQL query for '{}' on database {} has failed or is empty: {:?}",metric_name,db_name.to_string(),query);
+            } else {
+                info!("Result of SQL query for '{}' has failed or is empty: {:?}",metric_name,query);
+            }
+        }
     }
 }
 // pub(crate) fn get_sql_entry_value(entry: &Vec<String>) -> Option<(i64, Option<String>)> {

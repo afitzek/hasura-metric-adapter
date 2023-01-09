@@ -1,6 +1,7 @@
 use super::sql::*;
 use crate::{Configuration, Telemetry};
 use log::{warn, info, debug};
+use crate::telemetry::MetricOption;
 
 fn create_scheduled_event_request() -> SQLRequest {
     SQLRequest {
@@ -55,171 +56,26 @@ pub(crate) async fn check_scheduled_events(cfg: &Configuration,metric_obj: &Tele
     let sql_result = make_sql_request(&create_scheduled_event_request(), cfg).await;
     match sql_result {
         Ok(v) => {
+
             if v.status() == reqwest::StatusCode::OK {
                 let response = v.json::<Vec<SQLResult>>().await;
                 match response {
                     Ok(v) => {
-                        if let Some(failed) = v.get(0) {
-                            if failed.result_type == "TuplesOK" {
-                                if failed.result.as_ref().unwrap().len() == 1 {
-                                    let entry = &failed.result.as_ref().unwrap()[0];
-                                    match entry {
-                                        SQLResultItem::Str(vect) => {
-                                            let parsed_count;
-                                            if vect.len() == 1 {
-                                                parsed_count = match vect[0].trim().parse::<i64>() {
-                                                    Ok(value) => value,
-                                                    Err(_) => 0,
-                                                };
-                                            } else {
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                                parsed_count = 0;
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_FAILED.set(parsed_count);
-                                        }
-                                        SQLResultItem::Int(vect) => {
-                                            let count;
-                                            if vect.len() == 1 {
-                                                count = vect[0];
-                                            } else {
-                                                count = 0;
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_FAILED.set(count);
-                                        }
-                                        default => {
-                                            metric_obj.SCHEDULED_EVENTS_FAILED.set(0);
-                                            warn!("Failed to process entry '{:?}', expected one value [ count ]",default);
-                                        }
-                                    }
-                                } else {
-                                    warn!("Failed to process 'failed scheduled triggers' because the sql query response has incorrect format: '{:?}'",failed);
+                        v.iter().enumerate().for_each(|(index, query)| {
+                            let obj = match index as i32 {
+                                // Index values must match create_scheduled_event_request() for coherence
+                                0 => Ok((MetricOption::IntGauge(&metric_obj.SCHEDULED_EVENTS_FAILED), "failed scheduled triggers")),
+                                1 => Ok((MetricOption::IntGauge(&metric_obj.SCHEDULED_EVENTS_SUCCESSFUL), "successful scheduled triggers")),
+                                2 => Ok((MetricOption::IntGauge(&metric_obj.SCHEDULED_EVENTS_PENDING), "pending scheduled triggers")),
+                                3 => Ok((MetricOption::IntGauge(&metric_obj.SCHEDULED_EVENTS_PROCESSED), "processed scheduled triggers")),
+                                _ => {
+                                    warn!("Unexpected entry {:?}",query);
+                                    Err(format!("Unexpected entry {:?}",query))
                                 }
-                            } else {
-                                info!("Result of SQL query for 'failed scheduled trigger' has failed or is empty: {:?}", failed);
-                            }
-                        }
-                        if let Some(success) = v.get(1) {
-                            if success.result_type == "TuplesOK" {
-                                if success.result.as_ref().unwrap().len() == 1 {
-                                    let entry = &success.result.as_ref().unwrap()[0];
-                                    match entry {
-                                        SQLResultItem::Str(vect) => {
-                                            let parsed_count;
-                                            if vect.len() == 1 {
-                                                parsed_count = match vect[0].trim().parse::<i64>() {
-                                                    Ok(value) => value,
-                                                    Err(_) => 0,
-                                                };
-                                            } else {
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                                parsed_count = 0;
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_SUCCESSFUL.set(parsed_count);
-                                        }
-                                        SQLResultItem::Int(vect) => {
-                                            let count;
-                                            if vect.len() == 1 {
-                                                count = vect[0];
-                                            } else {
-                                                count = 0;
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_SUCCESSFUL.set(count);
-                                        }
-                                        default => {
-                                            metric_obj.SCHEDULED_EVENTS_SUCCESSFUL.set(0);
-                                            warn!("Failed to process entry '{:?}', expected one value [ count ]",default);
-                                        }
-                                    }
-                                } else {
-                                    warn!("Failed to process 'successful scheduled triggers' because the sql query response has incorrect format: '{:?}'",success);
-                                }
-                            } else {
-                                info!("Result of SQL query for 'successful scheduled trigger' has failed or is empty: {:?}", success);
-                            }
-                        }
-                        if let Some(pending) = v.get(2) {
-                            if pending.result_type == "TuplesOK" {
-                                if pending.result.as_ref().unwrap().len() == 1 {
-                                    let entry = &pending.result.as_ref().unwrap()[0];
-                                    match entry {
-                                        SQLResultItem::Str(vect) => {
-                                            let parsed_count;
-                                            if vect.len() == 1 {
-                                                parsed_count = match vect[0].trim().parse::<i64>() {
-                                                    Ok(value) => value,
-                                                    Err(_) => 0,
-                                                };
-                                            } else {
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                                parsed_count = 0;
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_PENDING.set(parsed_count);
-                                        }
-                                        SQLResultItem::Int(vect) => {
-                                            let count;
-                                            if vect.len() == 1 {
-                                                count = vect[0];
-                                            } else {
-                                                count = 0;
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_PENDING.set(count);
-                                        }
-                                        default => {
-                                            metric_obj.SCHEDULED_EVENTS_PENDING.set(0);
-                                            warn!("Failed to process entry '{:?}', expected one value [ count ]",default);
-                                        }
-                                    }
-                                } else {
-                                    warn!("Failed to process 'pending scheduled triggers' because the sql query response has incorrect format: '{:?}'",pending);
-                                }
-                            } else {
-                                info!("Result of SQL query for 'pending scheduled trigger' has failed or is empty: {:?}", pending);
-                            }
-                        }
-                        if let Some(processed) = v.get(3) {
-                            if processed.result_type == "TuplesOK" {
-                                if processed.result.as_ref().unwrap().len() == 1 {
-                                    let entry = &processed.result.as_ref().unwrap()[0];
-                                    match entry {
-                                        SQLResultItem::Str(vect) => {
-                                            let parsed_count;
-                                            if vect.len() == 1 {
-                                                parsed_count = match vect[0].trim().parse::<i64>() {
-                                                    Ok(value) => value,
-                                                    Err(_) => 0,
-                                                };
-                                            } else {
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                                parsed_count = 0;
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_PROCESSED.set(parsed_count);
-                                        }
-                                        SQLResultItem::Int(vect) => {
-                                            let count;
-                                            if vect.len() == 1 {
-                                                count = vect[0];
-                                            } else {
-                                                count = 0;
-                                                warn!("Failed to process entry '{:?}', expected one value [ count ]",vect);
-                                            }
-                                            metric_obj.SCHEDULED_EVENTS_PROCESSED.set(count);
-                                        }
-                                        default => {
-                                            metric_obj.SCHEDULED_EVENTS_PROCESSED.set(0);
-                                            warn!("Failed to process entry '{:?}', expected one value [ count ]",default);
-                                        }
-                                    }
-                                } else {
-                                    warn!("Failed to process 'successful scheduled triggers' because the sql query response has incorrect format: '{:?}'",processed);
-                                }
-                            } else {
-                                info!("Result of SQL query for 'processed scheduled trigger' has failed or is empty: {:?}",processed);
-                            }
-                        }
+                            };
 
+                            process_sql_result(query, obj, None);
+                        });
                     }
                     Err(e) => {
                         warn!( "Failed to collect scheduled event check invalid response format: {}", e );
