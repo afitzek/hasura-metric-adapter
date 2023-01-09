@@ -30,6 +30,9 @@ USAGE:
 OPTIONS:
         --collect-interval <collect-interval>
             [env: COLLECT_INTERVAL=] [default: 15000]
+        
+        --concurrency-limit <concurrency-limit>
+            [env: CONCURRENCY_LIMIT=] [default: 0]
 
         --exclude_collectors <collector>[;collector...]
             [env: EXCLUDE_COLLECTORS=] [possible values: cron-triggers, event-triggers,
@@ -132,7 +135,7 @@ EXCLUDE_COLLECTORS=cron-triggers;event-triggers;scheduled-events
     This is a gauge, that holds a `hasura_version` label, with the hasura version
     and the value of `1` if that version was detected.
 
-The following metrics are the same as in the project (https://github.com/zolamk/hasura-exporter), also the idea on how to access them is based on it. So all credit for these need to go to @zolamk, I just ported them here. (These metrics are disabled if no admin secret is provided.)
+The following metrics are the same as in the project (https://github.com/zolamk/hasura-exporter), also the idea on how to access them is based on it. So all credit for these need to go to @zolamk, I just ported them here. These metrics are disabled if no admin secret is provided. Cron triggers and one off events won't work if the postgres database with the metadata is not accessible as a data source with the 'default' name.
 
 - `hasura_pending_cron_triggers`, `hasura_processed_cron_triggers`, `hasura_successful_cron_triggers`, `hasura_failed_cron_triggers`
 
