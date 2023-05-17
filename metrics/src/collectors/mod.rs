@@ -1,6 +1,5 @@
-use std::sync::mpsc;
-use std::sync::mpsc::RecvTimeoutError;
 use log::debug;
+use tokio::{sync::watch, time};
 use crate::{Configuration, Telemetry};
 
 mod sql;
@@ -10,23 +9,27 @@ mod scheduled_events;
 mod cron_triggers;
 mod event_triggers;
 
-pub(crate) async fn run_metadata_collector(cfg: &Configuration, metric_obj: &Telemetry, termination_rx: &mpsc::Receiver<()>) -> std::io::Result<()> {
+pub(crate) async fn run_metadata_collector(cfg: &Configuration, metric_obj: &Telemetry, mut termination_rx: watch::Receiver<()>) -> std::io::Result<()> {
+    let mut interval = time::interval(time::Duration::from_millis(cfg.collect_interval));
+
     loop {
-        debug!("Running metadata collector");
+        tokio::select! {
+            biased;
+            _ = termination_rx.changed() => return Ok(()),
 
-        tokio::join!(
-            health::check_health(cfg,metric_obj),
-            scheduled_events::check_scheduled_events(&cfg,metric_obj),
-            cron_triggers::check_cron_triggers(&cfg,metric_obj),
-            async {
-                let metadata = metadata::check_metadata(cfg,metric_obj).await;
-                event_triggers::check_event_triggers(&cfg,metric_obj, &metadata).await;
-            }
-        );
+            _ = interval.tick() => {
+                debug!("Running metadata collector");
 
-        match termination_rx.recv_timeout(std::time::Duration::from_millis(cfg.collect_interval)) {
-            Ok(_) | Err(RecvTimeoutError::Disconnected) => return Ok(()),
-            Err(RecvTimeoutError::Timeout) => () //continue
+                tokio::join!(
+                    health::check_health(cfg,metric_obj),
+                    scheduled_events::check_scheduled_events(&cfg,metric_obj),
+                    cron_triggers::check_cron_triggers(&cfg,metric_obj),
+                    async {
+                        let metadata = metadata::check_metadata(cfg,metric_obj).await;
+                        event_triggers::check_event_triggers(&cfg,metric_obj, &metadata).await;
+                    }
+                );
+            },
         }
     }
 }
