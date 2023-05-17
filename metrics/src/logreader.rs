@@ -1,94 +1,82 @@
-use std::sync::mpsc;
-use std::sync::mpsc::{RecvTimeoutError,TryRecvError};
 use log::{debug, error, info, warn};
+use std::os::unix::prelude::MetadataExt;
 use tokio::{
     fs::File,
     io::{AsyncBufReadExt, BufReader},
+    sync::watch,
+    time,
 };
 use std::io::Result;
 use std::time::Duration;
-use notify::{Watcher, watcher, RecursiveMode, DebouncedEvent};
 
 
 use crate::{logprocessor, Telemetry};
 
 
-pub async fn read_file(log_file: &String, metric_obj: &Telemetry, sleep_time: u64, termination_rx: &mpsc::Receiver<()>) -> Result<()> {
+pub async fn read_file(log_file: &str, metric_obj: &Telemetry, sleep_time: u64, mut termination_rx: watch::Receiver<()>) -> Result<()> {
     loop {
-        match File::open(log_file).await {
-            Ok(file) => {
-                info!("Hasura log file {} open, will follow the log", log_file);
-                match process_file(log_file, metric_obj, file, sleep_time, termination_rx).await {
-                    Ok(true) => (),
-                    Ok(false) => return Ok(()),
-                    Err(e) => {
-                        warn!("Error reading logfile: {}", e);
-                        ()
+        tokio::select! {
+            biased;
+            _ = termination_rx.changed() => return Ok(()),
+
+            // if metrics adapter starts when named pipe already exists and hasura overwrites it
+            // after - original named pipe will be blocked waiting for input and never open.
+            // this timeout will handle such situation by retrying long file opens
+            _ = time::sleep(Duration::from_millis(1000)) => (),
+
+            result = File::open(log_file) => {
+                match result {
+                    Ok(file) => {
+                        info!("Hasura log file {} open, will follow the log", log_file);
+                        match process_file(metric_obj, &file, sleep_time, termination_rx.clone()).await {
+                            Ok(true) => (),
+                            Ok(false) => return Ok(()),
+                            Err(e) => {
+                                warn!("Error reading logfile: {}", e);
+                            }
+                        };
+                        info!("Need to reopen hasura log file {}", log_file);
                     }
-                };
-                info!("Need to reopen hasura log file {}", log_file);
-            }
-            Err(e) => {
-                error!("File {} could not be opened ({}). Will wait a little and then try again...", log_file, e);
-                match termination_rx.recv_timeout(Duration::from_millis(sleep_time)) {
-                    Ok(_) | Err(RecvTimeoutError::Disconnected) => return Ok(()),
-                    Err(RecvTimeoutError::Timeout) => () //continue
+                    Err(e) => {
+                        error!("File {} could not be opened ({}). Will wait a little and then try again...", log_file, e);
+
+                        tokio::select! {
+                            biased;
+                            _ = termination_rx.changed() => return Ok(()),
+                            _ = time::sleep(Duration::from_millis(1000)) => (),
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-async fn process_file(file_name: &String, metric_obj: &Telemetry, file: File, sleep_time: u64, termination_rx: &mpsc::Receiver<()>) -> Result<bool> {
-    let (watch_sender, watch_receiver) = mpsc::channel();
-    let mut watcher = watcher(watch_sender, Duration::from_secs(1)).unwrap();
-    watcher.watch(file_name, RecursiveMode::NonRecursive).unwrap();
-
-    let reader = BufReader::new(file);
+async fn process_file(metric_obj: &Telemetry, file: &File, sleep_time: u64, mut termination_rx: watch::Receiver<()>) -> Result<bool> {
+    let reader = BufReader::new(file.try_clone().await?);
     let mut lines = reader.lines();
 
     loop {
-        match watch_receiver.recv_timeout(Duration::from_millis(sleep_time)) {
-            Ok(DebouncedEvent::Write(_)) => (), //something was written to the file, read it
-            Ok(DebouncedEvent::Remove(_)) => {
-                info!("hasura logfile was removed");
-                return Ok(true);
-            },
-            Ok(DebouncedEvent::Rename(_, _)) => {
-                info!("hasura logfile was renamed");
-                return Ok(true);
-            },
-            Ok(DebouncedEvent::Chmod(_)) => { //happens when moving another file to it
-                info!("hasura logfile was chmod'ed");
-                return Ok(true);
-            },
-            Ok(DebouncedEvent::Rescan) => {
-                info!("hasura logfile needs rescan");
-                return Ok(true);
-            },
-            Ok(DebouncedEvent::Error(e, _)) => {
-                return Err(std::io::Error::new(std::io::ErrorKind::Other, format!("Watching error {}", e)));
-            },
-            Ok(_) => (),
-            Err(RecvTimeoutError::Disconnected) => return Ok(true),
-            Err(RecvTimeoutError::Timeout) => ()
-        }
+        tokio::select! {
+            biased;
+            _ = termination_rx.changed() => return Ok(false),
 
-        // read data as long as there's new data available
-        loop {
-            debug!("Reading line from logfile");
-            match termination_rx.try_recv() {
-                Ok(_) | Err(TryRecvError::Disconnected) => {
-                    return Ok(false)
-                },
-                Err(TryRecvError::Empty) => () //continue
-            }
+            next_line = lines.next_line() => {
+                if was_file_removed(&file).await? {
+                    return Ok(true)
+                }
 
-            if let Some(line) = lines.next_line().await? {
-                logprocessor::log_processor(&line,metric_obj).await;
-            } else {
-                break;
+                if let Some(line) = next_line? {
+                    debug!("Reading line from logfile");
+                    logprocessor::log_processor(&line, metric_obj).await;
+                } else {
+                    time::sleep(Duration::from_millis(sleep_time)).await;
+                }
             }
         }
     }
+}
+
+async fn was_file_removed(file: &File) -> Result<bool> {
+    Ok(file.metadata().await?.nlink() == 0)
 }

@@ -1,4 +1,3 @@
-use std::sync::mpsc;
 use std::collections::HashMap;
 
 use actix_web::{App, get, HttpServer, Responder};
@@ -10,6 +9,7 @@ use regex::Regex;
 use log::{info, warn, debug};
 
 use prometheus::{Encoder, TextEncoder};
+use tokio::sync::watch;
 use crate::telemetry::Telemetry;
 
 mod logreader;
@@ -116,15 +116,15 @@ pub(crate) struct Configuration {
     concurrency_limit: usize,
 }
 
-async fn signal_handler_ctrl_c(tx: mpsc::Sender<()>) -> std::io::Result<()> {
+async fn signal_handler_ctrl_c(tx: watch::Sender<()>) -> std::io::Result<()> {
     tokio::signal::ctrl_c().await?;
     warn!("Terminating due to ctrl+c");
     let _ = tx.send(());
     Ok(())
 }
 
-fn signal_handler() -> mpsc::Receiver<()> {
-    let (terminate_tx, terminate_rx) = mpsc::channel();
+fn signal_handler() -> watch::Receiver<()> {
+    let (terminate_tx, terminate_rx) = watch::channel(());
     tokio::spawn(signal_handler_ctrl_c(terminate_tx));
     terminate_rx
 }
@@ -161,8 +161,8 @@ async fn main() {
 
     let res = tokio::try_join!(
         webserver(&config),
-        logreader::read_file(&config.log_file, &metric_obj, config.sleep_time, &terminate_rx),
-        collectors::run_metadata_collector(&config, &metric_obj, &terminate_rx)
+        logreader::read_file(&config.log_file, &metric_obj, config.sleep_time, terminate_rx.clone()),
+        collectors::run_metadata_collector(&config, &metric_obj, terminate_rx.clone())
     );
     match res {
         Err(e) => {
