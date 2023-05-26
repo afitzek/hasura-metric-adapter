@@ -175,7 +175,7 @@ The important pieces of the example are:
 - The hasura container and the adapter share a common volume called `logs`, which is mounted in both containers as `/tmp/log`.
 - Overwrite the hasura command to:
     ```
-    "/bin/sh", "-c", "rm -rf /tmp/log/stdout.log && mkfifo /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log"
+    "/bin/sh", "-c", "rm -f /tmp/log/stdout.log && mkfifo /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log"
     ```
     This creates a named pipe, and pipes the logs of graphql-engine to the stdout for logging and to the named pipe for the metric adapter to collect.
 
