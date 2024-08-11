@@ -14,7 +14,7 @@ services:
       - POSTGRES_DB=postgres
 
   hasura:
-    image: hasura/graphql-engine:latest.cli-migrations-v3
+    image: hasura/graphql-engine:latest.cli-migrations-v3 
     command: sh -c 'rm -rf /tmp/log/stdout.log && mkfifo /tmp/log/stdout.log && /bin/graphql-engine serve | tee /tmp/log/stdout.log'
     ports:
       - "8080:8080"
