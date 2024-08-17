@@ -169,11 +169,11 @@ Don't use version `v0.1.0` its broken.
 
 The docker image `ghcr.io/afitzek/hasura-metric-adapter:v0.1.6` needs four environment variables to be configured.
 
-`LISTEN_ADDR`: The listen address for the metric endpoint
-`LOG_FILE`: The log file, which will hold the hasura logs
-`HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)
-`OPENTEL_ENDPOINT` The Open Telemetry collector endpoint (defaults to `http://localhost:4317`)
-`HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required
+`LISTEN_ADDR`: The listen address for the metric endpoint  
+`LOG_FILE`: The log file, which will hold the hasura logs  
+`HASURA_GRAPHQL_ENDPOINT` The hasura endpoint (defaults to `http://localhost:8080`)  
+`OPENTEL_ENDPOINT` The Open Telemetry collector endpoint (defaults to `http://localhost:4317`)  
+`HASURA_GRAPHQL_ADMIN_SECRET` The hasura admin secret this is required  
 
 ## K8S Example
 
