@@ -78,6 +78,8 @@ spec:
           value: /tmp/log/stdout.log
         - name: LISTEN_ADDR
           value: 0.0.0.0:9999
+        - name: OPENTEL_ENDPOINT
+          value: 0.0.0.0:4317
         - name: HASURA_GRAPHQL_ADMIN_SECRET
           value: test
         volumeMounts:
