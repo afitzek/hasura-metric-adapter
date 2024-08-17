@@ -6,11 +6,17 @@ use clap::Parser;
 use clap::builder::TypedValueParser;
 
 use regex::Regex;
-use log::{info, warn, debug};
+use log::{info, warn, debug, error};
 
 use prometheus::{Encoder, TextEncoder};
 use tokio::sync::watch;
 use crate::telemetry::Telemetry;
+use opentelemetry::{
+    global, runtime,
+    sdk::{trace, Resource},
+    trace::TraceError,KeyValue,
+};
+use opentelemetry_otlp::WithExportConfig;
 
 mod logreader;
 mod logprocessor;
@@ -40,7 +46,7 @@ async fn webserver(cfg: &Configuration) -> std::io::Result<()> {
         .await
 }
 
-#[derive(clap::ValueEnum, Clone,Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(clap::ValueEnum, Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(crate) enum Collectors {
     CronTriggers,
     EventTriggers,
@@ -78,7 +84,11 @@ impl TypedValueParser for MapValueParser {
         _arg: Option<&clap::Arg>,
         value: &std::ffi::OsStr,
     ) -> Result<Self::Value, clap::Error> {
-        let map: HashMap<String,String> = Regex::new(r",").unwrap().split(value.to_str().unwrap()).map(|x| key_value_parser(x).unwrap()).collect();
+        let map: HashMap<String,String> = Regex::new(r",")
+            .unwrap()
+            .split(value.to_str().unwrap())
+            .map(|x| key_value_parser(x).unwrap())
+            .collect();
         Ok(map)
     }
 }
@@ -91,6 +101,9 @@ pub(crate) struct Configuration {
 
     #[clap(name ="hasura-endpoint", long = "hasura-endpoint", env = "HASURA_GRAPHQL_ENDPOINT", default_value = "http://localhost:8080")]
     hasura_addr: String,
+
+    #[clap(name ="opentel-endpoint", long = "opentel-endpoint", env = "OPENTEL_ENDPOINT", default_value = "http://localhost:4317")]
+    opentel_addr: String,
 
     #[clap(name ="hasura-admin-secret", long = "hasura-admin-secret", env = "HASURA_GRAPHQL_ADMIN_SECRET")]
     hasura_admin: Option<String>,
@@ -130,11 +143,30 @@ fn signal_handler() -> watch::Receiver<()> {
     terminate_rx
 }
 
+fn init_tracer(opentel_addr: &str) -> Result<trace::Tracer, TraceError> {
+    opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_exporter(
+            opentelemetry_otlp::new_exporter()
+                .tonic()
+                .with_endpoint(opentel_addr),
+        )
+        .with_trace_config(
+            trace::config().with_resource(Resource::new(vec![KeyValue::new(
+                opentelemetry_semantic_conventions::resource::SERVICE_NAME,
+                "hasura-metrics-adapter",
+            )])),
+        )
+        .install_batch(runtime::Tokio)
+}
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     env_logger::init();
     let mut config = Configuration::parse();
+
+    // Initialize the opentel tracer
+    let tracer = init_tracer(&config.opentel_addr)?;
 
     if config.hasura_admin.is_none() {
         let admin_collectors = [
@@ -162,15 +194,22 @@ async fn main() {
 
     let res = tokio::try_join!(
         webserver(&config),
-        logreader::read_file(&config.log_file, &metric_obj, config.sleep_time, terminate_rx.clone()),
+        logreader::read_file(&tracer, &config.log_file, &metric_obj, config.sleep_time, terminate_rx.clone()),
         collectors::run_metadata_collector(&config, &metric_obj, terminate_rx.clone())
     );
+
     match res {
+        Ok(_) => {
+            info!("All tasks completed successfully");
+        }
         Err(e) => {
-            panic!("System error: {}", e);
+            error!("System error: {}", e);
+            return Err(e.into());
         }
-        _ => {
-            info!("bye bye");
-        }
-    };
+    }
+
+    // Gracefully shutdown the tracer
+    global::shutdown_tracer_provider();
+
+    Ok(())
 }

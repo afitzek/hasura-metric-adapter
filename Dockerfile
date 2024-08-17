@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-FROM --platform=$BUILDPLATFORM rust:1.69 as build
+FROM --platform=$BUILDPLATFORM rust:1.70 as build
 ARG TARGETARCH
 
 RUN echo "export PATH=/usr/local/cargo/bin:$PATH" >> /etc/profile

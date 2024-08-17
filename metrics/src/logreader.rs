@@ -11,9 +11,10 @@ use std::time::Duration;
 
 
 use crate::{logprocessor, Telemetry};
+use opentelemetry::sdk::trace;
 
 
-pub async fn read_file(log_file: &str, metric_obj: &Telemetry, sleep_time: u64, mut termination_rx: watch::Receiver<()>) -> Result<()> {
+pub async fn read_file(tracer: &trace::Tracer, log_file: &str, metric_obj: &Telemetry, sleep_time: u64, mut termination_rx: watch::Receiver<()>) -> Result<()> {
     loop {
         tokio::select! {
             biased;
@@ -28,7 +29,7 @@ pub async fn read_file(log_file: &str, metric_obj: &Telemetry, sleep_time: u64, 
                 match result {
                     Ok(file) => {
                         info!("Hasura log file {} open, will follow the log", log_file);
-                        match process_file(metric_obj, &file, sleep_time, termination_rx.clone()).await {
+                        match process_file(tracer, metric_obj, &file, sleep_time, termination_rx.clone()).await {
                             Ok(true) => (),
                             Ok(false) => return Ok(()),
                             Err(e) => {
@@ -52,7 +53,7 @@ pub async fn read_file(log_file: &str, metric_obj: &Telemetry, sleep_time: u64, 
     }
 }
 
-async fn process_file(metric_obj: &Telemetry, file: &File, sleep_time: u64, mut termination_rx: watch::Receiver<()>) -> Result<bool> {
+async fn process_file(tracer: &trace::Tracer, metric_obj: &Telemetry, file: &File, sleep_time: u64, mut termination_rx: watch::Receiver<()>) -> Result<bool> {
     let reader = BufReader::new(file.try_clone().await?);
     let mut lines = reader.lines();
 
@@ -68,7 +69,7 @@ async fn process_file(metric_obj: &Telemetry, file: &File, sleep_time: u64, mut 
 
                 if let Some(line) = next_line? {
                     debug!("Reading line from logfile");
-                    logprocessor::log_processor(&line, metric_obj).await;
+                    logprocessor::log_processor(&line, metric_obj,tracer).await;
                 } else {
                     time::sleep(Duration::from_millis(sleep_time)).await;
                 }

@@ -34,11 +34,12 @@ services:
     build:
       context: ./
       dockerfile: Dockerfile
-    image: hasura-metric-adapter:dev
+    image: metric:latest
     ports:
       - "9090:9090"
     depends_on:
       - "hasura"
+      - "jaeger"
     volumes:
       - logs:/tmp/log
     environment:
@@ -46,6 +47,7 @@ services:
       HASURA_GRAPHQL_ADMIN_SECRET: test
       HASURA_GRAPHQL_ENDPOINT: "http://hasura:8080"
       EXCLUDE_COLLECTORS: "cron-triggers;event-triggers;scheduled-events"
+      OPENTEL_ENDPOINT: "http://host.docker.internal:4317"
 
   prometheus:
     image: prom/prometheus:v2.30.3
@@ -63,6 +65,17 @@ services:
     volumes:
       - ./example/grafana/provisioning:/etc/grafana/provisioning
       - ./example/grafana/dashboards:/dashboards
+  
+  jaeger:
+      image: jaegertracing/all-in-one:latest
+      environment:
+        - COLLECTOR_OTLP_ENABLED=true
+      ports:
+        - "6831:6831/udp" # UDP port for Jaeger agent
+        - "16686:16686" # Web UI
+        - "14268:14268" # HTTP port for spans
+        - "4317:4317"
+
 volumes:
   db_data:
   logs:
