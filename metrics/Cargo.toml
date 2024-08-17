@@ -13,7 +13,7 @@ log = "0.4.16"
 
 reqwest = { version = "0.11", features = ["json"]}
 
-tokio = { version = "1", features = ["full"]}
+tokio = { version = "1.37", features = ["full"]}
 actix-web = "4.0.1"
 prometheus = "0.13.0"
 lazy_static = "1.4.0"
@@ -24,3 +24,6 @@ snafu = "0.7.1"
 regex = "1.6"
 openssl = { version = "0.10.40", features = ["vendored"] }
 futures = "0.3.25"
+opentelemetry = { version = "0.19.0", features = ["rt-tokio", "metrics", "trace"] }
+opentelemetry-otlp = { version = "0.12.0", features = ["trace", "metrics","http-proto"] }
+opentelemetry-semantic-conventions = { version = "0.11.0" }
