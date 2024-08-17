@@ -153,6 +153,16 @@ The following metrics are the same as in the project (https://github.com/zolamk/
 
     This is a gauge that is 1 if the instance metadata is consistent or 0 otherwise
 
+## Logs
+
+Hasura logs are sent via opentelemetry gRPC. 
+In the example provided, the logs can be viewed via jaeger on http://localhost:16686/search.
+In order to build a new docker image, in the main directory run:
+```
+docker build -t metric .
+docker compose run
+```    
+
 ## Docker Image
 
 Don't use version `v0.1.0` its broken.
